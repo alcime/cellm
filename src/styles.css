@@ -1,0 +1,104 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Arial', sans-serif;
+  background-color: #f0f0f0;
+  overflow: hidden;
+}
+
+.game-container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  background-color: #e0e0e0;
+}
+
+.cell {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: bold;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.2s ease;
+}
+
+.cell:hover {
+  transform: scale(1.1);
+}
+
+.cell.player {
+  background-color: #4caf50;
+  border: 3px solid #2e7d32;
+}
+
+.cell.enemy {
+  background-color: #f44336;
+  border: 3px solid #c62828;
+}
+
+.cell.neutral {
+  background-color: #9e9e9e;
+  border: 3px solid #616161;
+}
+
+.path {
+  position: absolute;
+  transform-origin: 0 100%;
+  height: 6px;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.path.player {
+  background-color: rgba(76, 175, 80, 0.7);
+}
+
+.unit {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #ffffff;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  animation: pulse 1s infinite alternate;
+}
+
+.unit.player {
+  background-color: #4caf50;
+}
+
+.unit.enemy {
+  background-color: #f44336;
+}
+
+@keyframes pulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+}
+
+.game-status {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background-color: rgba(255, 255, 255, 0.8);
+  padding: 10px;
+  border-radius: 5px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  z-index: 20;
+}
