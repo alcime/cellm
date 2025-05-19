@@ -101,48 +101,61 @@ body {
 /* Battle styling */
 .battle-container {
   position: absolute;
-  top: -10px;
-  left: -10px;
-  right: -10px;
-  bottom: -10px;
+  top: -15px;  /* Expanded to accommodate larger indicators */
+  left: -15px;
+  right: -15px;
+  bottom: -15px;
   border-radius: 50%;
-  overflow: hidden;
+  overflow: visible; /* Changed to visible to allow indicators to extend beyond */
   pointer-events: none;
+  z-index: 10; /* Ensure battle indicators appear above other elements */
 }
 
 .battle-attackers {
   position: absolute;
   top: 0;
   left: 0;
-  padding: 2px 5px;
-  border-radius: 4px;
-  font-size: 10px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 16px; /* Default size, will be overridden inline */
   color: white;
   font-weight: bold;
-  z-index: 3;
+  z-index: 12;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.7); /* Better readability */
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
+  min-width: 30px;
+  text-align: center;
+  transition: all 0.3s ease; /* Smooth transitions */
 }
 
 .battle-defenders {
   position: absolute;
   bottom: 0;
   right: 0;
-  padding: 2px 5px;
-  border-radius: 4px;
-  font-size: 10px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 16px; /* Default size, will be overridden inline */
   color: white;
-  background-color: rgba(0,0,0,0.5);
+  background-color: rgba(0,0,0,0.7); /* Darker for better contrast */
   font-weight: bold;
-  z-index: 3;
+  z-index: 12;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
+  min-width: 30px;
+  text-align: center;
+  transition: all 0.3s ease;
 }
 
 .battle-progress {
   position: absolute;
   bottom: 0;
   left: 0;
-  height: 4px;
-  background-color: rgba(255,255,255,0.5);
-  z-index: 2;
-  border-radius: 2px;
+  height: 6px; /* Thicker progress bar */
+  background-color: rgba(255,255,255,0.6);
+  z-index: 11;
+  border-radius: 3px;
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.4); /* Subtle glow */
+  transition: width 0.1s linear; /* Smoother updates */
 }
 
 @keyframes teleporter-glow {
@@ -164,7 +177,7 @@ body {
 
 .path {
   position: absolute;
-  transform-origin: 0 100%;
+  transform-origin: 0 50%; /* Ensure path starts from center of cell */
   height: 6px;
   background-color: rgba(0, 0, 0, 0.5);
   border-radius: 3px;
@@ -173,30 +186,42 @@ body {
   overflow: visible;
 }
 
-.path.player {
+/* SVG path styles for both curved and straight paths */
+.path-svg path.path {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  transform-origin: center;
+  transition: all 0.3s ease;
+}
+
+.path.player, .path-svg path.path.player {
   background-color: rgba(76, 175, 80, 0.7);
   stroke: rgba(76, 175, 80, 0.7);
 }
 
-.path.enemy {
+.path.enemy, .path-svg path.path.enemy {
   background-color: rgba(244, 67, 54, 0.7);
   stroke: rgba(244, 67, 54, 0.7);
 }
 
 /* Path strength styles */
-.path.weak {
+.path.weak, .path-svg path.path.weak {
   opacity: 0.6;
   height: 4px;
+  stroke-width: 4px;
 }
 
-.path.medium {
+.path.medium, .path-svg path.path.medium {
   opacity: 0.8;
   height: 6px;
+  stroke-width: 6px;
 }
 
-.path.strong {
+.path.strong, .path-svg path.path.strong {
   opacity: 1;
   height: 8px;
+  stroke-width: 8px;
 }
 
 /* Active path styles */
@@ -241,6 +266,21 @@ body {
   }
 }
 
+@keyframes pulse-along-path {
+  0% {
+    opacity: 1;
+    r: 4;
+  }
+  50% {
+    opacity: 0.8;
+    r: 7;
+  }
+  100% {
+    opacity: 0;
+    r: 3;
+  }
+}
+
 @keyframes path-pulse {
   0% {
     filter: brightness(1) drop-shadow(0 0 2px rgba(255, 255, 255, 0.5));
@@ -253,16 +293,43 @@ body {
 @keyframes flow-along-path {
   0% {
     opacity: 0;
+    r: 3;
   }
   25% {
     opacity: 1;
+    r: 4;
   }
   75% {
     opacity: 1;
+    r: 4;
   }
   100% {
     opacity: 0;
+    r: 3;
   }
+}
+
+/* Path marker styles */
+.path-marker {
+  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.5));
+}
+
+.path-marker.player {
+  fill: rgba(76, 175, 80, 0.9);
+}
+
+.path-marker.enemy {
+  fill: rgba(244, 67, 54, 0.9);
+}
+
+.path-pulse.player {
+  fill: rgba(76, 175, 80, 0.9);
+  filter: drop-shadow(0 0 5px rgba(76, 175, 80, 0.7));
+}
+
+.path-pulse.enemy {
+  fill: rgba(244, 67, 54, 0.9);
+  filter: drop-shadow(0 0 5px rgba(244, 67, 54, 0.7));
 }
 
 .unit {

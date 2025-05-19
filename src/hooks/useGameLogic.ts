@@ -493,9 +493,58 @@ export const useGameLogic = (initialCellCount: number = 10) => {
               arrivedUnits[targetId].enemy.push(unit);
             }
           } else {
-            // Unit is still moving - update its position
-            const newX = sourceCell.x + (targetCell.x - sourceCell.x) * newProgress;
-            const newY = sourceCell.y + (targetCell.y - sourceCell.y) * newProgress;
+            // Unit is still moving - update its position based on the path type
+            // Check if the path is curved
+            const path = paths.find(p => 
+              p.sourceCellId === sourceCell.id && 
+              p.targetCellId === targetCell.id
+            );
+            
+            let newX, newY;
+            
+            // Log debug information
+            console.log('DEBUG: UNIT MOVEMENT');
+            console.log(`  Source cell (${sourceCell.id}): x=${sourceCell.x}, y=${sourceCell.y}`);
+            console.log(`  Target cell (${targetCell.id}): x=${targetCell.x}, y=${targetCell.y}`);
+            console.log(`  Progress: ${newProgress.toFixed(2)}`);
+            
+            // Get the path type (straight or curved)
+            const pathType = path?.pathType || 'straight';
+            
+            if (pathType === 'curved') {
+              // Use quadratic bezier curve calculation for smooth curved movement
+              // P = (1-t)²P₁ + 2(1-t)tP₂ + t²P₃
+              
+              // Calculate midpoint with perpendicular offset (same as in Path.tsx)
+              const dx = targetCell.x - sourceCell.x;
+              const dy = targetCell.y - sourceCell.y;
+              const midX = (sourceCell.x + targetCell.x) / 2;
+              const midY = (sourceCell.y + targetCell.y) / 2;
+              
+              // Same perpendicular offset as used in path rendering
+              const perpX = -dy * 0.3;
+              const perpY = dx * 0.3;
+              
+              // Control point (P₂)
+              const ctrlX = midX + perpX;
+              const ctrlY = midY + perpY;
+              
+              // Calculate point along the curve at progress t
+              const t = newProgress;
+              const mt = 1 - t;
+              
+              // Quadratic bezier formula
+              newX = mt * mt * sourceCell.x + 2 * mt * t * ctrlX + t * t * targetCell.x;
+              newY = mt * mt * sourceCell.y + 2 * mt * t * ctrlY + t * t * targetCell.y;
+              
+              console.log(`  Curved path: t=${t}, control=(${ctrlX},${ctrlY})`);
+              console.log(`  Calculated position: (${newX.toFixed(2)},${newY.toFixed(2)})`);
+            } else {
+              // Simple linear interpolation for straight paths
+              newX = sourceCell.x + (targetCell.x - sourceCell.x) * newProgress;
+              newY = sourceCell.y + (targetCell.y - sourceCell.y) * newProgress;
+              console.log(`  Linear path: (${newX.toFixed(2)},${newY.toFixed(2)})`);
+            }
             
             updatedUnits.push({
               ...unit,

@@ -136,10 +136,15 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       }
       
       // Create a new unit
+      // Create a unit starting at the source cell's center
+      console.log(`DEBUG: Creating new unit from ${sourceCell.id} to ${actualTarget.id}`);
+      console.log(`  Source: (${sourceCell.x}, ${sourceCell.y})`);
+      console.log(`  Target: (${actualTarget.x}, ${actualTarget.y})`);
+      
       const newUnit: UnitData = {
         id: generateId(),
         owner: sourceCell.owner,
-        position: { x: sourceCell.x, y: sourceCell.y },
+        position: { x: sourceCell.x, y: sourceCell.y }, // Start at source cell center
         targetCellId: actualTarget.id,
         progress: 0,
         units: unitsToSend,
@@ -267,16 +272,24 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           }
         } else {
           // Unit is still moving - update its position
-          // Calculate the center point of both cells (to make movement visually correct)
-          // Cell positions are top-left when rendering, but we want to move from center to center
-          const sourceCenterX = sourceCell.x;
-          const sourceCenterY = sourceCell.y;
-          const targetCenterX = targetCell.x;
-          const targetCenterY = targetCell.y;
+          // Add debug logging to identify coordinate issues
+          console.log('DEBUG: UNIT MOVEMENT');
+          console.log(`  Source cell (${sourceCell.id}): x=${sourceCell.x}, y=${sourceCell.y}`);
+          console.log(`  Target cell (${targetCell.id}): x=${targetCell.x}, y=${targetCell.y}`);
+          console.log(`  Progress: ${newProgress.toFixed(2)}`);
           
-          // Interpolate between centers
-          const newX = sourceCenterX + (targetCenterX - sourceCenterX) * newProgress;
-          const newY = sourceCenterY + (targetCenterY - sourceCenterY) * newProgress;
+          // Calculate direct path between source and target
+          const deltaX = targetCell.x - sourceCell.x;
+          const deltaY = targetCell.y - sourceCell.y;
+          console.log(`  Delta: dx=${deltaX}, dy=${deltaY}`);
+          
+          // Interpolate directly along the path
+          const newX = sourceCell.x + deltaX * newProgress;
+          const newY = sourceCell.y + deltaY * newProgress;
+          console.log(`  New position: x=${newX.toFixed(2)}, y=${newY.toFixed(2)}`);
+          
+          // Log current unit details
+          console.log(`  Current unit (${unit.id}): owner=${unit.owner}, pos=${unit.position.x},${unit.position.y}`);
           
           updatedUnits.push({
             ...unit,
@@ -624,7 +637,7 @@ function createInitialCells(count: number): CellData[] {
     return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
   };
   
-  // Create player's first cell
+  // Create player's first cell - coordinates represent center points for units to move to/from
   cells.push({
     id: generateId(),
     x: window.innerWidth * 0.2,
@@ -634,6 +647,8 @@ function createInitialCells(count: number): CellData[] {
     unitGrowthRate: 1,
     cellType: 'standard'
   });
+  
+  console.log(`DEBUG: Created player cell at ${window.innerWidth * 0.2},${window.innerHeight * 0.5}`);
   
   // Create enemy and neutral cells
   for (let i = 1; i < count; i++) {

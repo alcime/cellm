@@ -115,16 +115,46 @@ const Cell: React.FC<CellProps> = React.memo(({ cell, isSelected, onClick }) => 
     // Use animation state values for smooth rendering
     const { battleProgress, attackingUnits, defendingUnits } = animationState;
     
+    // Calculate appropriate size based on cell units
+    const maxUnits = Math.max(attackingUnits, defendingUnits);
+    // Increase font size and make it responsive to unit count
+    const fontSize = Math.min(Math.max(14, 10 + Math.min(maxUnits / 5, 10)), 24);
+    
     return (
       <div className="battle-container">
+        {/* Enlarged attacker indicator */}
         <div className="battle-attackers" style={{ 
           opacity: 1 - battleProgress,
-          backgroundColor: cell.battleOwner === 'player' ? '#4caf50' : '#f44336'
+          backgroundColor: cell.battleOwner === 'player' ? '#4caf50' : '#f44336',
+          fontSize: `${fontSize}px`,
+          padding: '4px 8px',
+          boxShadow: '0 0 5px rgba(0, 0, 0, 0.5)',
+          fontWeight: 'bold',
+          minWidth: '30px',
+          textAlign: 'center',
+          top: '-8px',
+          left: '-8px'
         }}>
           {attackingUnits}
         </div>
-        <div className="battle-progress" style={{ width: `${battleProgress * 100}%` }} />
-        <div className="battle-defenders" style={{ opacity: 1 - battleProgress * 0.8 }}>
+        
+        <div className="battle-progress" style={{ 
+          width: `${battleProgress * 100}%`,
+          height: '6px' // Slightly thicker progress bar
+        }} />
+        
+        {/* Enlarged defender indicator */}
+        <div className="battle-defenders" style={{ 
+          opacity: 1 - battleProgress * 0.8,
+          fontSize: `${fontSize}px`,
+          padding: '4px 8px',
+          boxShadow: '0 0 5px rgba(0, 0, 0, 0.5)',
+          fontWeight: 'bold',
+          minWidth: '30px',
+          textAlign: 'center',
+          bottom: '-8px',
+          right: '-8px'
+        }}>
           {defendingUnits}
         </div>
       </div>
