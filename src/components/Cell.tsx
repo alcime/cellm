@@ -65,8 +65,42 @@ const Cell: React.FC<CellProps> = React.memo(({ cell, isSelected, onClick }) => 
       if (cell.inBattle) {
         // Calculate smooth battle animation values
         const progress = cell.battleProgress || 0;
-        const attackingUnits = cell.attackers ? Math.ceil(cell.attackers * (1 - progress)) : 0;
-        const defendingUnits = cell.defenders ? Math.ceil(cell.defenders * (1 - progress * 0.8)) : 0;
+        
+        // Improved battle animation calculation for more accurate numbers
+        // Get the raw numbers from the cell
+        const attackersStart = cell.attackers || 0;
+        const defendersStart = cell.defenders || 0;
+        
+        // Determine who's winning for proper animation
+        const attackersWinning = attackersStart > defendersStart;
+        const ratio = attackersWinning ? 
+          (defendersStart / Math.max(1, attackersStart)) : 
+          (attackersStart / Math.max(1, defendersStart));
+        
+        // Calculate unit reduction for winner and loser
+        // Winner should reduce at a slower rate (proportional to their advantage)
+        let attackingUnits, defendingUnits;
+        
+        if (attackersWinning) {
+          // Attackers are winning - they deplete more slowly
+          attackingUnits = Math.max(1, Math.round(attackersStart - (progress * defendersStart)));
+          defendingUnits = Math.max(0, Math.round(defendersStart * (1 - progress)));
+        } else {
+          // Defenders are winning - they deplete more slowly
+          attackingUnits = Math.max(0, Math.round(attackersStart * (1 - progress)));
+          defendingUnits = Math.max(1, Math.round(defendersStart - (progress * attackersStart)));
+        }
+        
+        // Ensure winner always has at least 1 unit left at the end
+        if (progress > 0.9) {
+          if (attackersWinning) {
+            attackingUnits = Math.max(1, attackingUnits);
+            defendingUnits = 0;
+          } else {
+            attackingUnits = 0;
+            defendingUnits = Math.max(1, defendingUnits);
+          }
+        }
         
         // Update animation state
         setAnimationState(prev => ({

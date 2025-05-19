@@ -3,31 +3,29 @@ import Cell from './Cell';
 import Path from './Path';
 import Unit from './Unit';
 import GameStatus from './GameStatus';
+import MapSelection from './MapSelection';
 import VisualEffects from './VisualEffects';
-import { useGameState } from '../hooks/useGameState';
+import { useGameLogic } from '../hooks/useGameLogic';
 
 // Main Game component
 const Game: React.FC = () => {
-  // Use the game state hook for centralized state management
-  const { 
-    state, 
-    initializeGame, 
-    updateGame, 
-    handleCellClick, 
-    performAiActions,
-    restartGame 
-  } = useGameState(10); // Start with 10 cells
-  
-  // Destructure state
-  const { 
-    cells, 
-    paths, 
-    units, 
-    selectedCellId, 
-    gameOver, 
+  // Use the game logic hook directly
+  const {
+    cells,
+    paths,
+    units,
+    selectedCellId,
+    gameOver,
     winner,
-    visualEffects
-  } = state;
+    handleCellClick,
+    restartGame,
+    changeMap,
+    currentMapId,
+    availableMaps
+  } = useGameLogic(10); // Start with 10 cells
+  
+  // Track visual effects locally
+  const [visualEffects, setVisualEffects] = useState<any[]>([]);
   
   // Create unit trails without DOM manipulation
   const handleCreateTrail = useCallback((x: number, y: number, owner: 'player' | 'enemy' | 'neutral', size: number) => {
@@ -61,32 +59,15 @@ const Game: React.FC = () => {
     return () => clearInterval(cleanupInterval);
   }, []);
   
-  // Initialize game on mount
-  useEffect(() => {
-    initializeGame();
-  }, [initializeGame]);
+  // Handle selecting a random map
+  const handlePlayRandom = useCallback(() => {
+    restartGame(undefined); // Pass undefined to use random map
+  }, [restartGame]);
   
-  // Game loop
-  useEffect(() => {
-    if (gameOver) return;
-    
-    const gameInterval = setInterval(() => {
-      updateGame(Date.now());
-    }, 100); // 10 updates per second
-    
-    return () => clearInterval(gameInterval);
-  }, [gameOver, updateGame]);
-  
-  // AI actions at regular intervals
-  useEffect(() => {
-    if (gameOver) return;
-    
-    const aiInterval = setInterval(() => {
-      performAiActions();
-    }, 5000); // AI makes decisions every 5 seconds
-    
-    return () => clearInterval(aiInterval);
-  }, [gameOver, performAiActions]);
+  // Handle selecting a specific map
+  const handleSelectMap = useCallback((mapId: string) => {
+    changeMap(mapId);
+  }, [changeMap]);
   
   return (
     <div className="game-container">
@@ -125,8 +106,28 @@ const Game: React.FC = () => {
         onRestart={restartGame}
       />
       
-      {/* Render visual effects from game state */}
-      <VisualEffects effects={visualEffects || []} />
+      {/* Map selection component */}
+      <div style={{ 
+        position: 'absolute', 
+        top: '20px', 
+        right: '20px',
+        zIndex: 20
+      }}>
+        <MapSelection
+          availableMaps={availableMaps}
+          currentMapId={currentMapId}
+          onSelectMap={handleSelectMap}
+          onPlayRandom={handlePlayRandom}
+        />
+      </div>
+      
+      {/* Game instructions */}
+      <div className="game-instructions">
+        <h3>Special Cell Types</h3>
+        <p><span className="special-indicator">⚙️</span> Factory: Produces units faster</p>
+        <p><span className="special-indicator">🛡️</span> Fortress: Stronger defense</p>
+        <p><span className="special-indicator">🌀</span> Teleporter: Instantly transport units</p>
+      </div>
       
       {/* Render component-specific effects */}
       <VisualEffects effects={customEffects} />

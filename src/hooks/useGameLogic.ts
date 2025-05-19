@@ -1,5 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
-import { CellData, PathData, UnitData, CellOwner, CellType, BattleData } from '../types';
+import { 
+  CellData, 
+  PathData, 
+  UnitData, 
+  CellOwner, 
+  CellType, 
+  BattleData, 
+  MapDefinition 
+} from '../types';
+import { generateId, calculateDistance } from '../utils/helpers';
+import { predefinedMaps, getMapById } from '../maps/mapDefinitions';
 
 // Define transaction types for cell conquest
 interface CombatTransaction {
@@ -18,13 +28,6 @@ interface CombatTransaction {
 // Battle animation configuration
 const BATTLE_DURATION = 3000; // ms
 const BATTLE_TICKS = 30; // How many calculation ticks during battle
-
-// Helper functions
-const generateId = (): string => Math.random().toString(36).substring(2, 9);
-
-const calculateDistance = (x1: number, y1: number, x2: number, y2: number): number => {
-  return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
-};
 
 // Combat logic functions
 const calculateCombatResult = (
@@ -169,7 +172,10 @@ const processCellTransaction = (transaction: CombatTransaction): CellData => {
   };
 };
 
-const createInitialCells = (count: number): CellData[] => {
+/**
+ * Create a random map with the specified number of cells
+ */
+const createRandomCells = (count: number): CellData[] => {
   const cells: CellData[] = [];
   
   // Define cell type distribution
@@ -272,7 +278,87 @@ const createInitialCells = (count: number): CellData[] => {
   return cells;
 };
 
-export const useGameLogic = (initialCellCount: number = 10) => {
+/**
+ * Load a predefined map from a MapDefinition
+ */
+const loadPredefinedMap = (mapDefinition: MapDefinition): CellData[] => {
+  console.log(`Loading predefined map: ${mapDefinition.name}`);
+  const cells: CellData[] = [];
+  const defaultGrowthRate = mapDefinition.defaultUnitGrowthRate || 1;
+  
+  // Create a dictionary to store teleporter cells by their index in the definition
+  const teleportersByIndex: { [index: number]: CellData } = {};
+  
+  // Process each cell in the map definition
+  mapDefinition.cells.forEach((cellDef, index) => {
+    // Generate a unique ID if not provided
+    const id = cellDef.id || generateId();
+    
+    // Create the basic cell data
+    const cell: CellData = {
+      id,
+      x: cellDef.x,
+      y: cellDef.y,
+      units: cellDef.initialUnits,
+      owner: cellDef.owner,
+      unitGrowthRate: defaultGrowthRate,
+      cellType: cellDef.cellType
+    };
+    
+    // Add special attributes based on cell type
+    if (cellDef.cellType === 'factory') {
+      cell.factoryMultiplier = cellDef.factoryMultiplier || 2;
+      cell.unitGrowthRate = defaultGrowthRate * 1.5; // Factories have higher base growth
+    } else if (cellDef.cellType === 'fortress') {
+      cell.fortressDefense = cellDef.fortressDefense || 1.5;
+    } else if (cellDef.cellType === 'teleporter') {
+      // Store the teleporter by its index for later pairing
+      teleportersByIndex[index] = cell;
+    }
+    
+    cells.push(cell);
+  });
+  
+  // Process teleporter pairs
+  Object.entries(teleportersByIndex).forEach(([indexStr, cell]) => {
+    const index = parseInt(indexStr);
+    const cellDef = mapDefinition.cells[index];
+    
+    if (cellDef.teleporterPair !== undefined) {
+      const targetIndex = cellDef.teleporterPair;
+      const targetCell = teleportersByIndex[targetIndex];
+      
+      if (targetCell) {
+        // Set up bidirectional teleporter links
+        cell.teleporterTarget = targetCell.id;
+        targetCell.teleporterTarget = cell.id;
+      } else {
+        console.warn(`Teleporter target index ${targetIndex} not found for teleporter at index ${index}`);
+      }
+    }
+  });
+  
+  return cells;
+};
+
+/**
+ * Create initial cells based on either a predefined map or random generation
+ */
+const createInitialCells = (count: number, mapId?: string): CellData[] => {
+  // If mapId is provided, try to load that specific map
+  if (mapId) {
+    const mapDefinition = getMapById(mapId);
+    if (mapDefinition) {
+      return loadPredefinedMap(mapDefinition);
+    }
+    console.warn(`Map with ID ${mapId} not found, falling back to random map`);
+  }
+  
+  // Fall back to random map generation
+  return createRandomCells(count);
+};
+
+export const useGameLogic = (initialCellCount: number = 10, mapId?: string) => {
   const [cells, setCells] = useState<CellData[]>([]);
   const [paths, setPaths] = useState<PathData[]>([]);
   const [units, setUnits] = useState<UnitData[]>([]);
@@ -280,11 +366,12 @@ export const useGameLogic = (initialCellCount: number = 10) => {
   const [selectedCellId, setSelectedCellId] = useState<string | null>(null);
   const [gameOver, setGameOver] = useState<boolean>(false);
   const [winner, setWinner] = useState<CellOwner | null>(null);
+  const [currentMapId, setCurrentMapId] = useState<string | undefined>(mapId);
   
   // Initialize game
   useEffect(() => {
-    setCells(createInitialCells(initialCellCount));
-  }, [initialCellCount]);
+    setCells(createInitialCells(initialCellCount, currentMapId));
+  }, [initialCellCount, currentMapId]);
   
   // Process battles
   const processBattles = useCallback(() => {
@@ -299,20 +386,64 @@ export const useGameLogic = (initialCellCount: number = 10) => {
         const elapsed = now - battle.startTime;
         const progress = Math.min(1, elapsed / battle.duration);
         
-        // Calculate current units based on progress
-        const attackerUnits = Math.max(0, 
-          battle.attackers.initialUnits - (progress * battle.attackers.initialUnits * 
-          (battle.attackers.initialUnits < battle.defenders.initialUnits ? 1 : 
-            battle.defenders.initialUnits / battle.attackers.initialUnits)
-          )
-        );
+        // Improved calculation for more realistic and accurate battle animation
+        // Determine who's winning
+        const attackersWinning = battle.attackers.initialUnits > battle.defenders.initialUnits;
+        const isTie = battle.attackers.initialUnits === battle.defenders.initialUnits;
         
-        const defenderUnits = Math.max(0, 
-          battle.defenders.initialUnits - (progress * battle.defenders.initialUnits * 
-          (battle.defenders.initialUnits < battle.attackers.initialUnits ? 1 : 
-            battle.attackers.initialUnits / battle.defenders.initialUnits)
-          )
-        );
+        // Calculate attack and defense ratios
+        const attackRatio = battle.attackers.initialUnits / Math.max(1, battle.defenders.initialUnits);
+        const defenseRatio = battle.defenders.initialUnits / Math.max(1, battle.attackers.initialUnits);
+        
+        let attackerUnits, defenderUnits;
+        
+        if (attackersWinning) {
+          // Attackers are winning - they should lose troops slower than defenders
+          // The stronger side loses units proportionally to the weaker side's strength
+          attackerUnits = Math.max(1, Math.round(
+            battle.attackers.initialUnits - (progress * battle.defenders.initialUnits)
+          ));
+          
+          // Defenders lose all units by the end of the battle
+          defenderUnits = Math.max(0, Math.round(
+            battle.defenders.initialUnits * (1 - progress)
+          ));
+        } else if (isTie) {
+          // In a tie, both sides lose units at the same rate, but ensure at least 1 unit survives
+          // based on the battle resolution rules in the game
+          const winnerOwner = 
+            battle.defenders.owner === 'neutral' || 
+            (battle.defenders.owner === 'enemy' && battle.attackers.owner === 'player') ? 
+            battle.attackers.owner : battle.defenders.owner;
+            
+          if (winnerOwner === battle.attackers.owner) {
+            attackerUnits = Math.max(1, Math.round(battle.attackers.initialUnits * (1 - progress * 0.9)));
+            defenderUnits = Math.max(0, Math.round(battle.defenders.initialUnits * (1 - progress)));
+          } else {
+            attackerUnits = Math.max(0, Math.round(battle.attackers.initialUnits * (1 - progress)));
+            defenderUnits = Math.max(1, Math.round(battle.defenders.initialUnits * (1 - progress * 0.9)));
+          }
+        } else {
+          // Defenders are winning - they should lose troops slower
+          attackerUnits = Math.max(0, Math.round(
+            battle.attackers.initialUnits * (1 - progress)
+          ));
+          
+          defenderUnits = Math.max(1, Math.round(
+            battle.defenders.initialUnits - (progress * battle.attackers.initialUnits)
+          ));
+        }
+        
+        // Ensure final state matches the battle outcome
+        if (progress > 0.95) {
+          if (attackersWinning) {
+            attackerUnits = Math.max(1, attackerUnits);
+            defenderUnits = 0;
+          } else if (!isTie) {
+            attackerUnits = 0;
+            defenderUnits = Math.max(1, defenderUnits);
+          }
+        }
         
         // Update cell battle state
         setCells(prevCells => {
@@ -813,14 +944,26 @@ export const useGameLogic = (initialCellCount: number = 10) => {
   }, [selectedCellId, cells, paths]);
   
   // Restart game
-  const restartGame = useCallback(() => {
-    setCells(createInitialCells(initialCellCount));
+  const restartGame = useCallback((newMapId?: string) => {
+    // If a new map ID is provided, update the current map
+    if (newMapId !== undefined) {
+      setCurrentMapId(newMapId);
+    }
+    
+    // Reset game state
+    setCells(createInitialCells(initialCellCount, newMapId || currentMapId));
     setPaths([]);
     setUnits([]);
     setSelectedCellId(null);
     setGameOver(false);
     setWinner(null);
-  }, [initialCellCount]);
+  }, [initialCellCount, currentMapId]);
+  
+  // Change to a specific map
+  const changeMap = useCallback((newMapId: string) => {
+    setCurrentMapId(newMapId);
+    restartGame(newMapId);
+  }, [restartGame]);
   
   // Add some basic AI for enemy
   useEffect(() => {
@@ -923,6 +1066,9 @@ export const useGameLogic = (initialCellCount: number = 10) => {
     gameOver,
     winner,
     handleCellClick,
-    restartGame
+    restartGame,
+    changeMap,
+    currentMapId,
+    availableMaps: predefinedMaps
   };
 };

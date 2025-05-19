@@ -2,6 +2,31 @@ export type CellOwner = 'player' | 'enemy' | 'neutral';
 
 export type CellType = 'standard' | 'factory' | 'fortress' | 'teleporter';
 
+// Fixed map structure interfaces
+export interface MapCellDefinition {
+  id?: string;           // Optional: If not provided, will be auto-generated
+  x: number;             // Required: X position (in pixels or relative units)
+  y: number;             // Required: Y position (in pixels or relative units)
+  initialUnits: number;  // Required: Starting unit count
+  owner: CellOwner;      // Required: Initial owner
+  cellType: CellType;    // Required: Type of cell
+  
+  // Optional special attributes based on cell type
+  factoryMultiplier?: number; // For factory: production multiplier (default: 2)
+  fortressDefense?: number;   // For fortress: defense bonus (default: 1.5)
+  teleporterPair?: number;    // For teleporter: index of paired teleporter in the array
+}
+
+export interface MapDefinition {
+  id: string;                     // Unique identifier for the map
+  name: string;                   // Display name
+  description: string;            // Short description
+  cells: MapCellDefinition[];     // Array of cell definitions
+  defaultUnitGrowthRate?: number; // Default growth rate for all cells (default: 1)
+  width?: number;                 // Optional: Set specific map width 
+  height?: number;                // Optional: Set specific map height
+}
+
 export interface CellData {
   id: string;
   x: number;
