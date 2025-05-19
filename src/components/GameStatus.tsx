@@ -12,7 +12,12 @@ const GameStatus: React.FC<GameStatusProps> = ({ gameOver, winner, onRestart }) 
     return (
       <div className="game-status">
         <h3>Cell Conquest</h3>
-        <p>Click on your cells (green) to select them, then click on another cell to create a path.</p>
+        <p>Click on your cells (green) to select them, then click on another cell to send units.</p>
+        <div style={{ fontSize: '0.8em', marginTop: '8px' }}>
+          <p>• When linking cells, 60% of units are sent immediately</p>
+          <p>• Cells generate units over time</p>
+          <p>• Conquer all enemy cells (red) to win</p>
+        </div>
       </div>
     );
   }
