@@ -240,14 +240,7 @@ const Game: React.FC = () => {
           />
         ))}
         
-        {/* Render paths */}
-        {paths.map(path => (
-          <Path
-            key={path.id}
-            path={path}
-            cells={cells}
-          />
-        ))}
+        {/* Paths will be rendered outside this container */}
         
         {/* Render units */}
         {units.map(unit => (
@@ -260,6 +253,30 @@ const Game: React.FC = () => {
         
         {/* Render component-specific effects */}
         <VisualEffects effects={customEffects} />
+      </div>
+      
+      {/* Render paths at window level (same scope as cells) */}
+      <div 
+        className="paths-overlay"
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          pointerEvents: 'none',
+          zIndex: 1,
+          transform: `translate(${panPosition.x}px, ${panPosition.y}px) scale(${zoomLevel})`,
+          transformOrigin: 'center center'
+        }}
+      >
+        {paths.map(path => (
+          <Path
+            key={path.id}
+            path={path}
+            cells={cells}
+          />
+        ))}
       </div>
       
       {/* UI elements that stay fixed (don't move with panning) */}

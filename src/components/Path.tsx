@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { PathData, CellData } from '../types';
 
 interface PathProps {
   path: PathData;
   cells: CellData[];
 }
+
+// Cell radius in pixels (30px radius since cell width/height is 60px)
+const CELL_RADIUS = 30;
 
 const Path: React.FC<PathProps> = ({ path, cells }) => {
   const [isActive, setIsActive] = useState(false);
@@ -17,26 +20,71 @@ const Path: React.FC<PathProps> = ({ path, cells }) => {
     return null;
   }
   
-  // Determine path type - straight or curved
-  const pathType = path.pathType || 'straight';
+  // Removed debug logging
+  
+  // Calculate path geometry with proper cell edge connections
+  const pathGeometry = useMemo(() => {
+    // Cell centers (cells use left/top positioning with translate(-50%, -50%))
+    // So the actual center is at the left/top values
+    const sourceCenterX = sourceCell.x;
+    const sourceCenterY = sourceCell.y;
+    const targetCenterX = targetCell.x;
+    const targetCenterY = targetCell.y;
+    
+    // Calculate direction vector
+    const dx = targetCenterX - sourceCenterX;
+    const dy = targetCenterY - sourceCenterY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    // Avoid division by zero for cells at same position
+    if (distance === 0) {
+      return null;
+    }
+    
+    // Normalize direction vector
+    const dirX = dx / distance;
+    const dirY = dy / distance;
+    
+    // Calculate connection points on cell circumferences
+    const sourceConnectX = sourceCenterX + dirX * CELL_RADIUS;
+    const sourceConnectY = sourceCenterY + dirY * CELL_RADIUS;
+    const targetConnectX = targetCenterX - dirX * CELL_RADIUS;
+    const targetConnectY = targetCenterY - dirY * CELL_RADIUS;
+    
+    // Determine path type
+    const pathType = path.pathType || 'straight';
+    
+    if (pathType === 'curved') {
+      // Calculate control point for bezier curve
+      const midX = (sourceConnectX + targetConnectX) / 2;
+      const midY = (sourceConnectY + targetConnectY) / 2;
+      
+      // Create perpendicular offset for curve
+      const perpX = -dirY * distance * 0.2; // Perpendicular to direction
+      const perpY = dirX * distance * 0.2;
+      
+      const ctrlX = midX + perpX;
+      const ctrlY = midY + perpY;
+      
+      return {
+        type: 'curved' as const,
+        pathString: `M${sourceConnectX},${sourceConnectY} Q${ctrlX},${ctrlY} ${targetConnectX},${targetConnectY}`,
+        sourcePoint: { x: sourceConnectX, y: sourceConnectY },
+        targetPoint: { x: targetConnectX, y: targetConnectY },
+        controlPoint: { x: ctrlX, y: ctrlY }
+      };
+    } else {
+      return {
+        type: 'straight' as const,
+        pathString: `M${sourceConnectX},${sourceConnectY} L${targetConnectX},${targetConnectY}`,
+        sourcePoint: { x: sourceConnectX, y: sourceConnectY },
+        targetPoint: { x: targetConnectX, y: targetConnectY }
+      };
+    }
+  }, [sourceCell.x, sourceCell.y, targetCell.x, targetCell.y, path.pathType]);
   
   // Get path strength visualization class
   const strengthClass = path.pathStrength || 'medium';
-  
-  // Calculate distance and angle
-  // Add debugging for path rendering
-  console.log('DEBUG: PATH RENDERING');
-  console.log(`  Path from ${sourceCell.id} to ${targetCell.id}`);
-  console.log(`  Source position: ${sourceCell.x},${sourceCell.y}`);
-  console.log(`  Target position: ${targetCell.x},${targetCell.y}`);
-  
-  const dx = targetCell.x - sourceCell.x;
-  const dy = targetCell.y - sourceCell.y;
-  console.log(`  Delta: dx=${dx}, dy=${dy}`);
-  
-  const distance = Math.sqrt(dx * dx + dy * dy);
-  const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-  console.log(`  Distance: ${distance.toFixed(2)}, Angle: ${angle.toFixed(2)} degrees`);
   
   // Visual effect when a unit is sent along this path
   useEffect(() => {
@@ -53,153 +101,68 @@ const Path: React.FC<PathProps> = ({ path, cells }) => {
     }
   }, [path.active, path.lastUnitSent]);
   
-  // For curved paths, we need to calculate control points for bezier curve
-  let pathElement;
-  
-  if (pathType === 'curved') {
-    // Calculate a curved SVG path
-    const midX = (sourceCell.x + targetCell.x) / 2;
-    const midY = (sourceCell.y + targetCell.y) / 2;
-    
-    // Calculate perpendicular offset for control point
-    const perpX = -dy * 0.3; // Offset perpendicular to direction
-    const perpY = dx * 0.3;
-    
-    // Control point is midpoint with perpendicular offset
-    const ctrlX = midX + perpX;
-    const ctrlY = midY + perpY;
-    
-    // Ensure path starts and ends at exact cell centers
-    // These coordinates have accurate transforms applied
-    const pathString = `M${sourceCell.x},${sourceCell.y} Q${ctrlX},${ctrlY} ${targetCell.x},${targetCell.y}`;
-    console.log(`  Curved path string: ${pathString}`);
-    
-    pathElement = (
-      <svg className="path-svg" style={{
-        position: 'absolute',
-        left: 0,
-        top: 0,
-        width: '100%',
-        height: '100%',
-        pointerEvents: 'none',
-        zIndex: -1,
-        overflow: 'visible' // Ensure markers don't get clipped
-      }}>
-        <path 
-          d={pathString} 
-          className={`path ${path.owner} ${strengthClass} ${isActive ? 'active' : ''}`}
-          fill="none"
-          strokeDasharray={strengthClass === 'weak' ? '5,5' : undefined}
-          strokeWidth={
-            strengthClass === 'strong' ? 8 : 
-            strengthClass === 'medium' ? 6 : 4
-          }
-          strokeLinecap="round" // Rounded ends for smoother appearance
-        />
-        
-        {/* Flow markers - small circles along the path */}
-        {Array.from({ length: 3 }).map((_, i) => (
-          <circle 
-            key={i}
-            className={`path-marker ${path.owner}`}
-            r={4}
-            style={{
-              animation: `flow-along-path 3s infinite linear ${i * 0.8}s`,
-              opacity: isActive ? 1 : 0.5,
-              filter: 'drop-shadow(0 0 2px white)' // Add glow for better visibility
-            }}
-          >
-            <animateMotion
-              dur="3s" 
-              repeatCount="indefinite" 
-              path={pathString}
-              rotate="auto" // Align with path direction
-            />
-          </circle>
-        ))}
-      </svg>
-    );
-  } else {
-    // Improved straight path with SVG for better precision
-    // SVG provides more precise rendering than using div elements and transforms
-    const pathString = `M${sourceCell.x},${sourceCell.y} L${targetCell.x},${targetCell.y}`;
-    console.log(`  Straight path string: ${pathString}`);
-    
-    pathElement = (
-      <svg className="path-svg" style={{
-        position: 'absolute',
-        left: 0,
-        top: 0,
-        width: '100%',
-        height: '100%',
-        pointerEvents: 'none',
-        zIndex: -1,
-        overflow: 'visible' // Ensure markers don't get clipped
-      }}>
-        <path 
-          d={pathString} 
-          className={`path ${path.owner} ${strengthClass} ${isActive ? 'active' : ''}`}
-          fill="none"
-          strokeDasharray={strengthClass === 'weak' ? '5,5' : undefined}
-          strokeWidth={
-            strengthClass === 'strong' ? 8 : 
-            strengthClass === 'medium' ? 6 : 4
-          }
-          strokeLinecap="round" // Rounded ends for smoother appearance
-          style={{
-            opacity: isActive ? 1 : 0.7,
-            transition: 'all 0.3s ease',
-            filter: isActive ? `drop-shadow(0 0 8px rgba(${path.owner === 'player' ? '76, 175, 80' : '244, 67, 54'}, 0.7))` : 'none'
-          }}
-        />
-        
-        {/* Flow markers for both straight SVG paths */}
-        {Array.from({ length: 3 }).map((_, i) => (
-          <circle 
-            key={i}
-            className={`path-marker ${path.owner}`}
-            r={4}
-            style={{
-              animation: `flow-along-path 3s infinite linear ${i * 0.8}s`,
-              opacity: isActive ? 1 : 0.5,
-              filter: 'drop-shadow(0 0 2px white)' // Add glow for better visibility
-            }}
-          >
-            <animateMotion
-              dur="3s" 
-              repeatCount="indefinite" 
-              path={pathString}
-              rotate="auto" // Align with path direction
-            />
-          </circle>
-        ))}
-        
-        {/* Pulse animation for active paths */}
-        {isActive && (
-          <circle
-            className={`path-pulse ${path.owner}`}
-            r={8}
-            style={{
-              animation: `pulse-along-path 1s ease-out forwards`,
-              opacity: 0.8
-            }}
-            key={pulseCount} // Force re-animation on new unit sent
-          >
-            <animateMotion
-              dur="1s"
-              repeatCount="1"
-              path={pathString}
-              keyPoints="0;1"
-              keyTimes="0;1"
-              calcMode="linear"
-            />
-          </circle>
-        )}
-      </svg>
-    );
+  // Return null if path geometry couldn't be calculated
+  if (!pathGeometry) {
+    return null;
   }
   
-  return pathElement;
+  // Calculate simple line properties
+  const dx = targetCell.x - sourceCell.x;
+  const dy = targetCell.y - sourceCell.y;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+  const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+  
+  return (
+    <>
+      {/* Simple CSS line */}
+      <div
+        style={{
+          position: 'absolute',
+          left: `${sourceCell.x}px`,
+          top: `${sourceCell.y}px`,
+          width: `${distance}px`,
+          height: '4px',
+          backgroundColor: path.owner === 'player' ? 'rgba(76, 175, 80, 0.8)' : 'rgba(244, 67, 54, 0.8)',
+          transform: `rotate(${angle}deg)`,
+          transformOrigin: '0 50%',
+          pointerEvents: 'none',
+          zIndex: 1,
+          borderRadius: '2px',
+          opacity: isActive ? 1 : 0.7
+        }}
+      />
+      
+      {/* Connection dots */}
+      <div
+        style={{
+          position: 'absolute',
+          left: `${sourceCell.x}px`,
+          top: `${sourceCell.y}px`,
+          width: '8px',
+          height: '8px',
+          backgroundColor: path.owner === 'player' ? '#4caf50' : '#f44336',
+          borderRadius: '50%',
+          transform: 'translate(-50%, -50%)',
+          pointerEvents: 'none',
+          zIndex: 2
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          left: `${targetCell.x}px`,
+          top: `${targetCell.y}px`,
+          width: '8px',
+          height: '8px',
+          backgroundColor: path.owner === 'player' ? '#4caf50' : '#f44336',
+          borderRadius: '50%',
+          transform: 'translate(-50%, -50%)',
+          pointerEvents: 'none',
+          zIndex: 2
+        }}
+      />
+    </>
+  );
 };
 
 export default Path;

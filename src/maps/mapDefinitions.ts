@@ -1,8 +1,8 @@
 import { MapDefinition, CellOwner, CellType } from '../types';
 import { generateId } from '../utils/helpers';
 
-// Helper function to ensure window dimensions are available (or use defaults)
-const getWindowDimensions = (): { width: number, height: number } => {
+// Helper function to get current window dimensions
+const getCurrentDimensions = (): { width: number, height: number } => {
   if (typeof window !== 'undefined') {
     return {
       width: window.innerWidth,
@@ -12,8 +12,12 @@ const getWindowDimensions = (): { width: number, height: number } => {
   return { width: 1024, height: 768 }; // Default fallback dimensions
 };
 
-// Predefined maps collection
-export const predefinedMaps: MapDefinition[] = [
+// Function to create predefined maps with current window dimensions
+export const createPredefinedMaps = (): MapDefinition[] => {
+  const dims = getCurrentDimensions();
+  // Removed map logging
+  
+  return [
   // Basic duel map (2 players)
   {
     id: 'basic_duel',
@@ -23,24 +27,24 @@ export const predefinedMaps: MapDefinition[] = [
     cells: [
       // Player's starting cell (left side)
       {
-        x: getWindowDimensions().width * 0.2,
-        y: getWindowDimensions().height * 0.5,
+        x: dims.width * 0.2,
+        y: dims.height * 0.5,
         initialUnits: 10,
         owner: 'player',
         cellType: 'standard'
       },
       // Enemy's starting cell (right side)
       {
-        x: getWindowDimensions().width * 0.8,
-        y: getWindowDimensions().height * 0.5,
+        x: dims.width * 0.8,
+        y: dims.height * 0.5,
         initialUnits: 10,
         owner: 'enemy',
         cellType: 'standard'
       },
       // Center factory (slightly higher production)
       {
-        x: getWindowDimensions().width * 0.5,
-        y: getWindowDimensions().height * 0.5,
+        x: dims.width * 0.5,
+        y: dims.height * 0.5,
         initialUnits: 5,
         owner: 'neutral',
         cellType: 'factory',
@@ -48,15 +52,15 @@ export const predefinedMaps: MapDefinition[] = [
       },
       // Two neutral cells (top and bottom)
       {
-        x: getWindowDimensions().width * 0.5,
-        y: getWindowDimensions().height * 0.25,
+        x: dims.width * 0.5,
+        y: dims.height * 0.25,
         initialUnits: 3,
         owner: 'neutral',
         cellType: 'standard'
       },
       {
-        x: getWindowDimensions().width * 0.5,
-        y: getWindowDimensions().height * 0.75,
+        x: dims.width * 0.5,
+        y: dims.height * 0.75,
         initialUnits: 3,
         owner: 'neutral',
         cellType: 'standard'
@@ -73,8 +77,8 @@ export const predefinedMaps: MapDefinition[] = [
     cells: [
       // Player's starting cell
       {
-        x: getWindowDimensions().width * 0.2,
-        y: getWindowDimensions().height * 0.5,
+        x: dims.width * 0.2,
+        y: dims.height * 0.5,
         initialUnits: 15,
         owner: 'player',
         cellType: 'factory',
@@ -82,8 +86,8 @@ export const predefinedMaps: MapDefinition[] = [
       },
       // Enemy's main fortress (high defense)
       {
-        x: getWindowDimensions().width * 0.8,
-        y: getWindowDimensions().height * 0.5,
+        x: dims.width * 0.8,
+        y: dims.height * 0.5,
         initialUnits: 20,
         owner: 'enemy',
         cellType: 'fortress',
@@ -91,37 +95,37 @@ export const predefinedMaps: MapDefinition[] = [
       },
       // Enemy supporting cells (triangular formation)
       {
-        x: getWindowDimensions().width * 0.7,
-        y: getWindowDimensions().height * 0.3,
+        x: dims.width * 0.7,
+        y: dims.height * 0.3,
         initialUnits: 8,
         owner: 'enemy',
         cellType: 'standard'
       },
       {
-        x: getWindowDimensions().width * 0.7,
-        y: getWindowDimensions().height * 0.7,
+        x: dims.width * 0.7,
+        y: dims.height * 0.7,
         initialUnits: 8,
         owner: 'enemy',
         cellType: 'standard'
       },
       // Neutral cells
       {
-        x: getWindowDimensions().width * 0.5,
-        y: getWindowDimensions().height * 0.3,
+        x: dims.width * 0.5,
+        y: dims.height * 0.3,
         initialUnits: 5,
         owner: 'neutral',
         cellType: 'standard'
       },
       {
-        x: getWindowDimensions().width * 0.5,
-        y: getWindowDimensions().height * 0.7,
+        x: dims.width * 0.5,
+        y: dims.height * 0.7,
         initialUnits: 5,
         owner: 'neutral',
         cellType: 'standard'
       },
       {
-        x: getWindowDimensions().width * 0.4,
-        y: getWindowDimensions().height * 0.5,
+        x: dims.width * 0.4,
+        y: dims.height * 0.5,
         initialUnits: 7,
         owner: 'neutral',
         cellType: 'factory',
@@ -139,32 +143,32 @@ export const predefinedMaps: MapDefinition[] = [
     cells: [
       // Player's starting cell
       {
-        x: getWindowDimensions().width * 0.1,
-        y: getWindowDimensions().height * 0.5,
+        x: dims.width * 0.1,
+        y: dims.height * 0.5,
         initialUnits: 12,
         owner: 'player',
         cellType: 'standard'
       },
       // Enemy's starting cell
       {
-        x: getWindowDimensions().width * 0.9,
-        y: getWindowDimensions().height * 0.5,
+        x: dims.width * 0.9,
+        y: dims.height * 0.5,
         initialUnits: 12,
         owner: 'enemy',
         cellType: 'standard'
       },
       // Teleporter pair 1 (horizontal edges)
       {
-        x: getWindowDimensions().width * 0.25,
-        y: getWindowDimensions().height * 0.5,
+        x: dims.width * 0.25,
+        y: dims.height * 0.5,
         initialUnits: 3,
         owner: 'neutral',
         cellType: 'teleporter',
         teleporterPair: 3 // Paired with index 3
       },
       {
-        x: getWindowDimensions().width * 0.75,
-        y: getWindowDimensions().height * 0.5,
+        x: dims.width * 0.75,
+        y: dims.height * 0.5,
         initialUnits: 3,
         owner: 'neutral',
         cellType: 'teleporter',
@@ -172,16 +176,16 @@ export const predefinedMaps: MapDefinition[] = [
       },
       // Teleporter pair 2 (vertical edges)
       {
-        x: getWindowDimensions().width * 0.5,
-        y: getWindowDimensions().height * 0.25,
+        x: dims.width * 0.5,
+        y: dims.height * 0.25,
         initialUnits: 3,
         owner: 'neutral',
         cellType: 'teleporter',
         teleporterPair: 5 // Paired with index 5
       },
       {
-        x: getWindowDimensions().width * 0.5,
-        y: getWindowDimensions().height * 0.75,
+        x: dims.width * 0.5,
+        y: dims.height * 0.75,
         initialUnits: 3,
         owner: 'neutral',
         cellType: 'teleporter',
@@ -189,8 +193,8 @@ export const predefinedMaps: MapDefinition[] = [
       },
       // Center factory - high value target
       {
-        x: getWindowDimensions().width * 0.5,
-        y: getWindowDimensions().height * 0.5,
+        x: dims.width * 0.5,
+        y: dims.height * 0.5,
         initialUnits: 10,
         owner: 'neutral',
         cellType: 'factory',
@@ -198,29 +202,29 @@ export const predefinedMaps: MapDefinition[] = [
       },
       // Additional neutral cells
       {
-        x: getWindowDimensions().width * 0.35,
-        y: getWindowDimensions().height * 0.35,
+        x: dims.width * 0.35,
+        y: dims.height * 0.35,
         initialUnits: 5,
         owner: 'neutral',
         cellType: 'standard'
       },
       {
-        x: getWindowDimensions().width * 0.65,
-        y: getWindowDimensions().height * 0.35,
+        x: dims.width * 0.65,
+        y: dims.height * 0.35,
         initialUnits: 5,
         owner: 'neutral',
         cellType: 'standard'
       },
       {
-        x: getWindowDimensions().width * 0.35,
-        y: getWindowDimensions().height * 0.65,
+        x: dims.width * 0.35,
+        y: dims.height * 0.65,
         initialUnits: 5,
         owner: 'neutral',
         cellType: 'standard'
       },
       {
-        x: getWindowDimensions().width * 0.65,
-        y: getWindowDimensions().height * 0.65,
+        x: dims.width * 0.65,
+        y: dims.height * 0.65,
         initialUnits: 5,
         owner: 'neutral',
         cellType: 'standard'
@@ -237,16 +241,16 @@ export const predefinedMaps: MapDefinition[] = [
     cells: [
       // Player's corner
       {
-        x: getWindowDimensions().width * 0.2,
-        y: getWindowDimensions().height * 0.2,
+        x: dims.width * 0.2,
+        y: dims.height * 0.2,
         initialUnits: 15,
         owner: 'player',
         cellType: 'standard'
       },
       // Enemy's corner
       {
-        x: getWindowDimensions().width * 0.8,
-        y: getWindowDimensions().height * 0.8,
+        x: dims.width * 0.8,
+        y: dims.height * 0.8,
         initialUnits: 15,
         owner: 'enemy',
         cellType: 'standard'
@@ -254,54 +258,54 @@ export const predefinedMaps: MapDefinition[] = [
       // Grid of neutral cells (3x3)
       // Top row
       {
-        x: getWindowDimensions().width * 0.2,
-        y: getWindowDimensions().height * 0.5,
+        x: dims.width * 0.2,
+        y: dims.height * 0.5,
         initialUnits: 5,
         owner: 'neutral',
         cellType: 'standard'
       },
       {
-        x: getWindowDimensions().width * 0.5,
-        y: getWindowDimensions().height * 0.5,
+        x: dims.width * 0.5,
+        y: dims.height * 0.5,
         initialUnits: 8,
         owner: 'neutral',
         cellType: 'factory',
         factoryMultiplier: 1.5
       },
       {
-        x: getWindowDimensions().width * 0.8,
-        y: getWindowDimensions().height * 0.5,
+        x: dims.width * 0.8,
+        y: dims.height * 0.5,
         initialUnits: 5,
         owner: 'neutral',
         cellType: 'standard'
       },
       // Middle row
       {
-        x: getWindowDimensions().width * 0.5,
-        y: getWindowDimensions().height * 0.2,
+        x: dims.width * 0.5,
+        y: dims.height * 0.2,
         initialUnits: 5,
         owner: 'neutral',
         cellType: 'standard'
       },
       {
-        x: getWindowDimensions().width * 0.5,
-        y: getWindowDimensions().height * 0.8,
+        x: dims.width * 0.5,
+        y: dims.height * 0.8,
         initialUnits: 5,
         owner: 'neutral',
         cellType: 'standard'
       },
       // Corner fortresses
       {
-        x: getWindowDimensions().width * 0.2,
-        y: getWindowDimensions().height * 0.8,
+        x: dims.width * 0.2,
+        y: dims.height * 0.8,
         initialUnits: 10,
         owner: 'neutral',
         cellType: 'fortress',
         fortressDefense: 1.5
       },
       {
-        x: getWindowDimensions().width * 0.8,
-        y: getWindowDimensions().height * 0.2,
+        x: dims.width * 0.8,
+        y: dims.height * 0.2,
         initialUnits: 10,
         owner: 'neutral',
         cellType: 'fortress',
@@ -309,15 +313,20 @@ export const predefinedMaps: MapDefinition[] = [
       }
     ]
   }
-];
+  ];
+};
+
+// Lazy-loaded predefined maps
+export const predefinedMaps: MapDefinition[] = createPredefinedMaps();
 
 // Function to get a map by ID
 export function getMapById(mapId: string): MapDefinition | undefined {
-  return predefinedMaps.find(map => map.id === mapId);
+  return createPredefinedMaps().find(map => map.id === mapId);
 }
 
 // Function to get a random map
 export function getRandomMap(): MapDefinition {
-  const randomIndex = Math.floor(Math.random() * predefinedMaps.length);
-  return predefinedMaps[randomIndex];
+  const maps = createPredefinedMaps();
+  const randomIndex = Math.floor(Math.random() * maps.length);
+  return maps[randomIndex];
 }

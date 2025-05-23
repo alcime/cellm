@@ -176,6 +176,7 @@ const processCellTransaction = (transaction: CombatTransaction): CellData => {
  * Create a random map with the specified number of cells
  */
 const createRandomCells = (count: number): CellData[] => {
+  // Removed logging
   const cells: CellData[] = [];
   
   // Define cell type distribution
@@ -203,7 +204,7 @@ const createRandomCells = (count: number): CellData[] => {
   cellTypes[1] = 'standard';
   
   // Create player's first cell
-  cells.push({
+  const playerCell: CellData = {
     id: generateId(),
     x: window.innerWidth * 0.2,
     y: window.innerHeight * 0.5,
@@ -211,7 +212,9 @@ const createRandomCells = (count: number): CellData[] => {
     owner: 'player',
     unitGrowthRate: 1,
     cellType: 'standard'
-  });
+  };
+  // Removed logging
+  cells.push(playerCell);
   
   // Create enemy and neutral cells
   for (let i = 1; i < count; i++) {
@@ -351,7 +354,6 @@ const createInitialCells = (count: number, mapId?: string): CellData[] => {
     if (mapDefinition) {
       return loadPredefinedMap(mapDefinition);
     }
-    console.warn(`Map with ID ${mapId} not found, falling back to random map`);
   }
   
   // Fall back to random map generation

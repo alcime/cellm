@@ -217,6 +217,8 @@ const Cell: React.FC<CellProps> = React.memo(({ cell, isSelected, onClick }) => 
     return Math.floor(cell.units);
   }, [cell.units, cell.conquestUnits, animationState.isConquered]);
   
+  // Removed debug logging
+
   return (
     <div
       className={`cell ${cell.owner} ${cell.cellType} ${isSelected ? 'selected' : ''} ${animationState.isConquered ? 'conquered' : ''} ${cell.inBattle ? 'in-battle' : ''}`}
