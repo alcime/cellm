@@ -1,13 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PathData, CellData } from '../types';
 
 interface PathProps {
   path: PathData;
   cells: CellData[];
 }
-
-// Cell radius in pixels (30px radius since cell width/height is 60px)
-const CELL_RADIUS = 30;
 
 const Path: React.FC<PathProps> = ({ path, cells }) => {
   const [isActive, setIsActive] = useState(false);
@@ -20,71 +17,6 @@ const Path: React.FC<PathProps> = ({ path, cells }) => {
     return null;
   }
   
-  // Removed debug logging
-  
-  // Calculate path geometry with proper cell edge connections
-  const pathGeometry = useMemo(() => {
-    // Cell centers (cells use left/top positioning with translate(-50%, -50%))
-    // So the actual center is at the left/top values
-    const sourceCenterX = sourceCell.x;
-    const sourceCenterY = sourceCell.y;
-    const targetCenterX = targetCell.x;
-    const targetCenterY = targetCell.y;
-    
-    // Calculate direction vector
-    const dx = targetCenterX - sourceCenterX;
-    const dy = targetCenterY - sourceCenterY;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    
-    // Avoid division by zero for cells at same position
-    if (distance === 0) {
-      return null;
-    }
-    
-    // Normalize direction vector
-    const dirX = dx / distance;
-    const dirY = dy / distance;
-    
-    // Calculate connection points on cell circumferences
-    const sourceConnectX = sourceCenterX + dirX * CELL_RADIUS;
-    const sourceConnectY = sourceCenterY + dirY * CELL_RADIUS;
-    const targetConnectX = targetCenterX - dirX * CELL_RADIUS;
-    const targetConnectY = targetCenterY - dirY * CELL_RADIUS;
-    
-    // Determine path type
-    const pathType = path.pathType || 'straight';
-    
-    if (pathType === 'curved') {
-      // Calculate control point for bezier curve
-      const midX = (sourceConnectX + targetConnectX) / 2;
-      const midY = (sourceConnectY + targetConnectY) / 2;
-      
-      // Create perpendicular offset for curve
-      const perpX = -dirY * distance * 0.2; // Perpendicular to direction
-      const perpY = dirX * distance * 0.2;
-      
-      const ctrlX = midX + perpX;
-      const ctrlY = midY + perpY;
-      
-      return {
-        type: 'curved' as const,
-        pathString: `M${sourceConnectX},${sourceConnectY} Q${ctrlX},${ctrlY} ${targetConnectX},${targetConnectY}`,
-        sourcePoint: { x: sourceConnectX, y: sourceConnectY },
-        targetPoint: { x: targetConnectX, y: targetConnectY },
-        controlPoint: { x: ctrlX, y: ctrlY }
-      };
-    } else {
-      return {
-        type: 'straight' as const,
-        pathString: `M${sourceConnectX},${sourceConnectY} L${targetConnectX},${targetConnectY}`,
-        sourcePoint: { x: sourceConnectX, y: sourceConnectY },
-        targetPoint: { x: targetConnectX, y: targetConnectY }
-      };
-    }
-  }, [sourceCell.x, sourceCell.y, targetCell.x, targetCell.y, path.pathType]);
-  
-  // Get path strength visualization class
-  const strengthClass = path.pathStrength || 'medium';
   
   // Visual effect when a unit is sent along this path
   useEffect(() => {
@@ -101,36 +33,55 @@ const Path: React.FC<PathProps> = ({ path, cells }) => {
     }
   }, [path.active, path.lastUnitSent]);
   
-  // Return null if path geometry couldn't be calculated
-  if (!pathGeometry) {
-    return null;
-  }
-  
-  // Calculate simple line properties
+  // Use SVG to properly render curved or straight paths that match unit movement
   const dx = targetCell.x - sourceCell.x;
   const dy = targetCell.y - sourceCell.y;
-  const distance = Math.sqrt(dx * dx + dy * dy);
-  const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+  
+  // Determine path type (same logic as unit movement)
+  const pathType = path.pathType || 'straight';
+  
+  let pathString = '';
+  if (pathType === 'curved') {
+    // Use same curve calculation as unit movement
+    const midX = (sourceCell.x + targetCell.x) / 2;
+    const midY = (sourceCell.y + targetCell.y) / 2;
+    
+    // Same perpendicular offset as used in unit movement
+    const perpX = -dy * 0.3;
+    const perpY = dx * 0.3;
+    
+    const ctrlX = midX + perpX;
+    const ctrlY = midY + perpY;
+    
+    
+    pathString = `M${sourceCell.x},${sourceCell.y} Q${ctrlX},${ctrlY} ${targetCell.x},${targetCell.y}`;
+  } else {
+    pathString = `M${sourceCell.x},${sourceCell.y} L${targetCell.x},${targetCell.y}`;
+  }
   
   return (
     <>
-      {/* Simple CSS line */}
-      <div
+      {/* SVG path that matches unit movement exactly */}
+      <svg
         style={{
           position: 'absolute',
-          left: `${sourceCell.x}px`,
-          top: `${sourceCell.y}px`,
-          width: `${distance}px`,
-          height: '4px',
-          backgroundColor: path.owner === 'player' ? 'rgba(76, 175, 80, 0.8)' : 'rgba(244, 67, 54, 0.8)',
-          transform: `rotate(${angle}deg)`,
-          transformOrigin: '0 50%',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
           pointerEvents: 'none',
-          zIndex: 1,
-          borderRadius: '2px',
-          opacity: isActive ? 1 : 0.7
+          zIndex: 1
         }}
-      />
+      >
+        <path
+          d={pathString}
+          stroke={path.owner === 'player' ? 'rgba(76, 175, 80, 0.8)' : 'rgba(244, 67, 54, 0.8)'}
+          strokeWidth="4"
+          fill="none"
+          strokeLinecap="round"
+          opacity={isActive ? 1 : 0.7}
+        />
+      </svg>
       
       {/* Connection dots */}
       <div

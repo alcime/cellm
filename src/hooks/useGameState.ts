@@ -137,9 +137,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       
       // Create a new unit
       // Create a unit starting at the source cell's center
-      console.log(`DEBUG: Creating new unit from ${sourceCell.id} to ${actualTarget.id}`);
-      console.log(`  Source: (${sourceCell.x}, ${sourceCell.y})`);
-      console.log(`  Target: (${actualTarget.x}, ${actualTarget.y})`);
       
       const newUnit: UnitData = {
         id: generateId(),
@@ -272,24 +269,15 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           }
         } else {
           // Unit is still moving - update its position
-          // Add debug logging to identify coordinate issues
-          console.log('DEBUG: UNIT MOVEMENT');
-          console.log(`  Source cell (${sourceCell.id}): x=${sourceCell.x}, y=${sourceCell.y}`);
-          console.log(`  Target cell (${targetCell.id}): x=${targetCell.x}, y=${targetCell.y}`);
-          console.log(`  Progress: ${newProgress.toFixed(2)}`);
           
           // Calculate direct path between source and target
           const deltaX = targetCell.x - sourceCell.x;
           const deltaY = targetCell.y - sourceCell.y;
-          console.log(`  Delta: dx=${deltaX}, dy=${deltaY}`);
           
           // Interpolate directly along the path
           const newX = sourceCell.x + deltaX * newProgress;
           const newY = sourceCell.y + deltaY * newProgress;
-          console.log(`  New position: x=${newX.toFixed(2)}, y=${newY.toFixed(2)}`);
           
-          // Log current unit details
-          console.log(`  Current unit (${unit.id}): owner=${unit.owner}, pos=${unit.position.x},${unit.position.y}`);
           
           updatedUnits.push({
             ...unit,
@@ -648,7 +636,6 @@ function createInitialCells(count: number): CellData[] {
     cellType: 'standard'
   });
   
-  console.log(`DEBUG: Created player cell at ${window.innerWidth * 0.2},${window.innerHeight * 0.5}`);
   
   // Create enemy and neutral cells
   for (let i = 1; i < count; i++) {

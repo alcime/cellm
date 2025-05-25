@@ -27,7 +27,6 @@ const Cell: React.FC<CellProps> = React.memo(({ cell, isSelected, onClick }) => 
   // Detect when a cell changes ownership
   useEffect(() => {
     if (previousOwnerRef.current !== cell.owner) {
-      console.log(`Cell ${cell.id} changed from ${previousOwnerRef.current} to ${cell.owner} with ${cell.units} units`);
       
       // Start conquest animation
       setAnimationState(prev => ({
@@ -217,7 +216,6 @@ const Cell: React.FC<CellProps> = React.memo(({ cell, isSelected, onClick }) => 
     return Math.floor(cell.units);
   }, [cell.units, cell.conquestUnits, animationState.isConquered]);
   
-  // Removed debug logging
 
   return (
     <div

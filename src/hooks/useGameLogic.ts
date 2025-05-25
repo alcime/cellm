@@ -54,7 +54,6 @@ const calculateCombatResult = (
   const defenderUnits = Math.max(0, cell.units); // Ensure non-negative
   const attackerOwner = sortedAttackers[0].owner; // Use highest priority attacker for ownership
 
-  console.log(`\n  BATTLE: ${totalAttackers} attacking units (${attackerOwner}) vs ${defenderUnits} defending units (${cell.owner})`);
   
   // Safety check - both values should be non-negative
   if (totalAttackers < 0 || defenderUnits < 0) {
@@ -71,33 +70,23 @@ const calculateCombatResult = (
     newUnits = totalAttackers - defenderUnits;
     newOwner = attackerOwner;
     conquestUnits = newUnits;
-    console.log(`  ATTACKER VICTORY: ${totalAttackers} - ${defenderUnits} = ${newUnits} units remain`);
-    console.log(`  OWNERSHIP CHANGE: ${cell.owner} -> ${newOwner}`);
   } else if (totalAttackers < defenderUnits) {
     // Defenders win
     newUnits = defenderUnits - totalAttackers;
     newOwner = cell.owner;
-    console.log(`  DEFENDER VICTORY: ${defenderUnits} - ${totalAttackers} = ${newUnits} units remain`);
-    console.log(`  OWNERSHIP UNCHANGED: ${cell.owner}`);
   } else {
     // Tie - consistent rules
     if (cell.owner === 'neutral') {
       newUnits = 1;
       newOwner = attackerOwner;
       conquestUnits = newUnits;
-      console.log(`  TIE (NEUTRAL): Attacker takes with 1 unit`);
-      console.log(`  OWNERSHIP CHANGE: ${cell.owner} -> ${newOwner}`);
     } else if (cell.owner === 'enemy' && attackerOwner === 'player') {
       newUnits = 1;
       newOwner = attackerOwner;
       conquestUnits = newUnits;
-      console.log(`  TIE (PLAYER vs ENEMY): Player wins with 1 unit`);
-      console.log(`  OWNERSHIP CHANGE: ${cell.owner} -> ${newOwner}`);
     } else {
       newUnits = 1;
       newOwner = cell.owner;
-      console.log(`  TIE (OTHER): Defender keeps with 1 unit`);
-      console.log(`  OWNERSHIP UNCHANGED: ${cell.owner}`);
     }
   }
 
@@ -120,7 +109,6 @@ const processReinforcements = (
   const validReinforcements = reinforcements.filter(unit => unit.owner === currentOwner);
   
   if (validReinforcements.length === 0) {
-    console.log(`  REINFORCEMENT SKIPPED: Cell owner (${currentOwner}) doesn't match available reinforcements`);
     return currentUnits;
   }
 
@@ -128,7 +116,6 @@ const processReinforcements = (
   const totalReinforcements = validReinforcements.reduce((sum, unit) => sum + unit.units, 0);
   const newUnits = currentUnits + totalReinforcements;
   
-  console.log(`  APPLYING REINFORCEMENTS: ${currentUnits} + ${totalReinforcements} = ${newUnits}`);
   return newUnits;
 };
 
@@ -136,9 +123,6 @@ const processReinforcements = (
 const processCellTransaction = (transaction: CombatTransaction): CellData => {
   const { originalCell, attackerUnits, friendlyUnits } = transaction;
   
-  console.log(`\n==== PROCESSING CELL ${originalCell.id} ====`);
-  console.log(`Target cell current state: ${originalCell.units} units, owner: ${originalCell.owner}`);
-  console.log(`Processing ${attackerUnits.length} attacking units and ${friendlyUnits.length} reinforcing units`);
 
   // First handle combat (if any attackers present)
   const combatResult = calculateCombatResult(originalCell, attackerUnits);
@@ -154,13 +138,6 @@ const processCellTransaction = (transaction: CombatTransaction): CellData => {
   // Determine if ownership changed
   const wasConquered = originalCell.owner !== combatResult.newOwner;
   
-  // Log final state
-  console.log(`\n  === FINAL STATE ===`);
-  console.log(`  Units: ${originalCell.units} → ${finalUnits}`);
-  console.log(`  Owner: ${originalCell.owner} → ${combatResult.newOwner}`);
-  console.log(`  Conquered: ${wasConquered ? 'YES' : 'NO'}`);
-  console.log(`  Animation value: ${wasConquered ? combatResult.conquestUnits : 'N/A'}`);
-  console.log(`  ====================\n`);
 
   // Return updated cell state
   return {
@@ -285,7 +262,6 @@ const createRandomCells = (count: number): CellData[] => {
  * Load a predefined map from a MapDefinition
  */
 const loadPredefinedMap = (mapDefinition: MapDefinition): CellData[] => {
-  console.log(`Loading predefined map: ${mapDefinition.name}`);
   const cells: CellData[] = [];
   const defaultGrowthRate = mapDefinition.defaultUnitGrowthRate || 1;
   
@@ -336,7 +312,6 @@ const loadPredefinedMap = (mapDefinition: MapDefinition): CellData[] => {
         cell.teleporterTarget = targetCell.id;
         targetCell.teleporterTarget = cell.id;
       } else {
-        console.warn(`Teleporter target index ${targetIndex} not found for teleporter at index ${index}`);
       }
     }
   });
@@ -582,13 +557,10 @@ export const useGameLogic = (initialCellCount: number = 10, mapId?: string) => {
         const arrivedUnits: { [cellId: string]: { friendly: UnitData[], enemy: UnitData[] } } = {};
         
         // First pass - collect all units that have arrived at their targets
-        console.log('------- NEW GAME TICK - PROCESSING UNITS -------');
-        console.log(`Processing ${prevUnits.length} units`);
         
         for (const unit of prevUnits) {
           const targetCell = cells.find(cell => cell.id === unit.targetCellId);
           if (!targetCell) {
-            console.log(`WARNING: Target cell not found for unit ${unit.id}`);
             continue;
           }
           
@@ -600,7 +572,6 @@ export const useGameLogic = (initialCellCount: number = 10, mapId?: string) => {
           });
           
           if (!sourceCell) {
-            console.log(`WARNING: Source cell not found for unit ${unit.id}`);
             continue;
           }
           
@@ -613,12 +584,10 @@ export const useGameLogic = (initialCellCount: number = 10, mapId?: string) => {
             
             if (!arrivedUnits[targetId]) {
               arrivedUnits[targetId] = { friendly: [], enemy: [] };
-              console.log(`NEW ARRIVAL DESTINATION: Cell ${targetId}, owner: ${targetCell.owner}, units: ${targetCell.units}`);
             }
             
             // Separate friendly reinforcements from enemy attackers
             const isTargetFriendly = targetCell.owner === unit.owner;
-            console.log(`Unit ${unit.id} (${unit.units} units, owner: ${unit.owner}) arrived at ${isTargetFriendly ? 'friendly' : 'enemy'} cell ${targetId}`);
             
             if (isTargetFriendly) {
               arrivedUnits[targetId].friendly.push(unit);
@@ -691,35 +660,27 @@ export const useGameLogic = (initialCellCount: number = 10, mapId?: string) => {
         }
         
         // Second pass - process all arrived units for each target cell in a single atomic update
-        console.log(`PROCESSING ARRIVALS: ${Object.keys(arrivedUnits).length} cells have units arriving`);
         
         Object.keys(arrivedUnits).forEach(targetId => {
-          console.log(`\n==== PROCESSING CELL ${targetId} ====`);
           
           const targetCell = cells.find(cell => cell.id === targetId);
           if (!targetCell) {
-            console.log(`ERROR: Could not find target cell ${targetId} in cells array!`);
             return;
           }
           
-          console.log(`Target cell current state: ${targetCell.units} units, owner: ${targetCell.owner}`);
           
           // Count friendly/enemy arrivals for this cell
           const friendlyCount = arrivedUnits[targetId].friendly.length;
           const enemyCount = arrivedUnits[targetId].enemy.length;
-          console.log(`Arrivals: ${friendlyCount} friendly units, ${enemyCount} enemy units`);
           
           setCells(prevCells => {
-            console.log(`\n  ==== setCells triggered for ${targetId} ====`);
             
             // Find the latest cell state in this render cycle
             const latestCellState = prevCells.find(c => c.id === targetId);
             if (!latestCellState) {
-              console.error(`CRITICAL ERROR: Cell ${targetId} not found in prevCells!`);
               return prevCells; // Return unchanged
             }
             
-            console.log(`  Latest cell state in prevCells: ${latestCellState.units} units, owner: ${latestCellState.owner}`);
             
             return prevCells.map(cell => {
               if (cell.id !== targetId) return cell;
@@ -728,7 +689,6 @@ export const useGameLogic = (initialCellCount: number = 10, mapId?: string) => {
               // We use the cell from prevCells (the current state snapshot)
               // This ensures all calculations use the proper starting values
               const originalCell = cell;
-              console.log(`  Original cell state for calculation: ${originalCell.units} units, owner: ${originalCell.owner}`);
               
               // Start with original cell state
               let newUnits = originalCell.units;
@@ -745,24 +705,9 @@ export const useGameLogic = (initialCellCount: number = 10, mapId?: string) => {
                 units: unit.units 
               }));
               
-              // Log all units involved
-              if (attackerUnits.length > 0) {
-                console.log(`\n  ** COMBAT SEQUENCE **`);
-                attackerUnits.forEach((unit, idx) => {
-                  console.log(`  Attacking unit ${idx+1}: ${unit.units} units, owner: ${unit.owner}`);
-                });
-              }
-              
-              if (friendlyUnits.length > 0) {
-                console.log(`\n  ** REINFORCEMENTS **`);
-                friendlyUnits.forEach((unit, idx) => {
-                  console.log(`  Reinforcement unit ${idx+1}: ${unit.units} units, owner: ${unit.owner}`);
-                });
-              }
               
               // Check if the cell is already in battle
               if (originalCell.inBattle) {
-                console.log(`Cell ${targetId} is already in battle, skipping transaction`);
                 return originalCell;
               }
               
@@ -771,7 +716,6 @@ export const useGameLogic = (initialCellCount: number = 10, mapId?: string) => {
                   friendlyUnits[0].owner === originalCell.owner) {
                 
                 const totalReinforcements = friendlyUnits.reduce((sum, unit) => sum + unit.units, 0);
-                console.log(`Adding ${totalReinforcements} friendly reinforcements directly`);
                 
                 return {
                   ...originalCell,
@@ -791,14 +735,10 @@ export const useGameLogic = (initialCellCount: number = 10, mapId?: string) => {
                   ? Math.round(defendingUnits * (originalCell.fortressDefense || 1)) 
                   : defendingUnits;
                 
-                if (adjustedDefendingUnits > defendingUnits) {
-                  console.log(`Fortress defense bonus applied: ${defendingUnits} → ${adjustedDefendingUnits}`);
-                }
                 
                 // Create a new battle
                 const battleId = generateId();
                 
-                console.log(`Starting battle at cell ${targetId}: ${attackingUnits} ${attackingOwner} units vs ${adjustedDefendingUnits} ${originalCell.owner} units`);
                 
                 setBattles(prevBattles => [
                   ...prevBattles,
@@ -864,10 +804,13 @@ export const useGameLogic = (initialCellCount: number = 10, mapId?: string) => {
     const clickedCell = cells.find(cell => cell.id === cellId);
     if (!clickedCell) return;
     
+    console.log(`Cell clicked: ${cellId} at (${clickedCell.x}, ${clickedCell.y})`);
+    
     if (selectedCellId) {
       const sourceCell = cells.find(cell => cell.id === selectedCellId);
       
       if (sourceCell && sourceCell.owner === 'player' && cellId !== selectedCellId) {
+        console.log(`Creating path from ${sourceCell.id} at (${sourceCell.x}, ${sourceCell.y}) to ${clickedCell.id} at (${clickedCell.x}, ${clickedCell.y})`);
         // Check if a path already exists between these cells
         const existingPath = paths.find(path => 
           path.sourceCellId === selectedCellId && 
@@ -880,7 +823,6 @@ export const useGameLogic = (initialCellCount: number = 10, mapId?: string) => {
         } else {
           // Calculate units to send (60% of source cell's units)
           const unitsToSend = Math.floor(sourceCell.units * 0.6);
-          console.log(`Sending ${unitsToSend} units from ${sourceCell.units} total`);
           
           if (unitsToSend > 0) {
             // Update source cell by subtracting the units being sent
@@ -888,7 +830,6 @@ export const useGameLogic = (initialCellCount: number = 10, mapId?: string) => {
               return prevCells.map(cell => {
                 if (cell.id === sourceCell.id) {
                   const remaining = cell.units - unitsToSend;
-                  console.log(`Source cell will have ${remaining} units remaining`);
                   return {
                     ...cell,
                     units: remaining
@@ -901,7 +842,6 @@ export const useGameLogic = (initialCellCount: number = 10, mapId?: string) => {
             // Create a single unit block to send
             const targetCell = cells.find(cell => cell.id === cellId);
             if (targetCell) {
-              console.log(`Target cell has ${targetCell.units} units and owner ${targetCell.owner}`);
               const newUnit: UnitData = {
                 id: generateId(),
                 owner: sourceCell.owner,
@@ -1002,7 +942,6 @@ export const useGameLogic = (initialCellCount: number = 10, mapId?: string) => {
           if (!existingPath && enemyCell.units > 5) {
             // Calculate units to send (60% of enemy cell's units)
             const unitsToSend = Math.floor(enemyCell.units * 0.6);
-            console.log(`Enemy sending ${unitsToSend} units from ${enemyCell.units} total`);
             
             if (unitsToSend > 0) {
               // Update enemy cell by subtracting the units being sent
@@ -1010,7 +949,6 @@ export const useGameLogic = (initialCellCount: number = 10, mapId?: string) => {
                 return prevCells.map(cell => {
                   if (cell.id === enemyCell.id) {
                     const remaining = cell.units - unitsToSend;
-                    console.log(`Enemy cell will have ${remaining} units remaining`);
                     return {
                       ...cell,
                       units: remaining
@@ -1021,7 +959,6 @@ export const useGameLogic = (initialCellCount: number = 10, mapId?: string) => {
               });
               
               // Create a single unit block to send
-              console.log(`Enemy target cell has ${targetCell.units} units and owner ${targetCell.owner}`);
               const newEnemyUnit: UnitData = {
                 id: generateId(),
                 owner: 'enemy',
