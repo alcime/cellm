@@ -1,14 +1,18 @@
 import { GameState, GameConfig, Cell, Unit, Path, Position, PlayerId, GameEvent, CellType, Battle } from './types';
+import { AIStrategy } from './AIStrategy';
 
 export class GameEngine {
   private state: GameState;
   private config: GameConfig;
   private eventListeners: { [eventType: string]: Function[] } = {};
   private gameLoop: number | null = null;
+  private aiStrategy: AIStrategy;
+  private aiTimer: number = 0;
 
   constructor(config: GameConfig) {
     this.config = config;
     this.state = this.createInitialState();
+    this.aiStrategy = new AIStrategy('enemy');
   }
 
   // ===================
@@ -466,6 +470,13 @@ export class GameEngine {
         productionTimer = 0;
       }
 
+      // AI decisions every 2 seconds
+      this.aiTimer += deltaTime;
+      if (this.aiTimer >= 2) {
+        this.updateAI();
+        this.aiTimer = 0;
+      }
+
       // Check win condition
       this.checkWinCondition();
 
@@ -497,6 +508,23 @@ export class GameEngine {
       this.state.gamePhase = 'ended';
       this.state.winner = 'player';
       this.emit('game_ended', { winner: 'player' });
+    }
+  }
+
+  // ===================
+  // AI SYSTEM
+  // ===================
+
+  private updateAI(): void {
+    const decisions = this.aiStrategy.makeDecisions(this.state);
+    
+    if (decisions.length > 0) {
+      console.log(`AI making ${decisions.length} decisions:`, decisions);
+    }
+    
+    for (const decision of decisions) {
+      console.log(`AI sending ${decision.unitCount} units from ${decision.sourceCellId} to ${decision.targetCellId}`);
+      this.sendUnits(decision.sourceCellId, decision.targetCellId, decision.unitCount);
     }
   }
 
