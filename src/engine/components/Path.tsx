@@ -1,12 +1,12 @@
 import React from 'react';
-import { Path, Cell } from '../types';
+import { Path as PathData, Cell } from '../types';
 
 interface PathProps {
-  path: Path;
+  path: PathData;
   cells: Cell[];
 }
 
-export const NewPath: React.FC<PathProps> = ({ path, cells }) => {
+export const Path: React.FC<PathProps> = ({ path, cells }) => {
   const sourceCell = cells.find(c => c.id === path.sourceCellId);
   const targetCell = cells.find(c => c.id === path.targetCellId);
 

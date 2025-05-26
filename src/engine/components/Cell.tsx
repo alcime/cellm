@@ -1,13 +1,13 @@
 import React from 'react';
-import { Cell as CellType } from '../types';
+import { Cell as CellData } from '../types';
 
 interface CellProps {
-  cell: CellType;
+  cell: CellData;
   isSelected: boolean;
   onClick: (cellId: string) => void;
 }
 
-export const NewCell: React.FC<CellProps> = ({ cell, isSelected, onClick }) => {
+export const Cell: React.FC<CellProps> = ({ cell, isSelected, onClick }) => {
   const handleClick = () => {
     onClick(cell.id);
   };

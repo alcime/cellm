@@ -1,18 +1,21 @@
 import React from 'react';
-import { Unit } from '../types';
+import { Unit as UnitData } from '../types';
 
 interface UnitProps {
-  unit: Unit;
+  unit: UnitData;
 }
 
-export const NewUnit: React.FC<UnitProps> = ({ unit }) => {
+export const Unit: React.FC<UnitProps> = ({ unit }) => {
   const size = Math.min(Math.max(16, unit.unitCount * 2), 40);
+  
+  // Use battlePosition during battles, otherwise use regular position
+  const displayPosition = unit.battlePosition || unit.position;
   
   // Simple, direct positioning - no transforms
   const style: React.CSSProperties = {
     position: 'absolute',
-    left: unit.position.x - size / 2, // Center the unit
-    top: unit.position.y - size / 2,
+    left: displayPosition.x - size / 2, // Center the unit
+    top: displayPosition.y - size / 2,
     width: `${size}px`,
     height: `${size}px`,
     borderRadius: '50%',
@@ -27,7 +30,8 @@ export const NewUnit: React.FC<UnitProps> = ({ unit }) => {
     textShadow: '1px 1px 2px black',
     zIndex: 15,
     boxShadow: `0 0 ${size/4}px ${getUnitColor(unit.owner)}`,
-    animation: unit.unitCount > 10 ? 'pulse 1s infinite alternate' : 'none'
+    animation: unit.battleState === 'fighting' ? 'battle-pulse 0.5s infinite alternate' : 
+               unit.unitCount > 10 ? 'pulse 1s infinite alternate' : 'none'
   };
 
   return (

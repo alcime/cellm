@@ -1,21 +1,23 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { GameEngine } from '../GameEngine';
-import { GameState, GameConfig, Cell, CellType } from '../types';
-import { NewCell } from './NewCell';
-import { NewUnit } from './NewUnit';
-import { NewPath } from './NewPath';
+import { GameState, GameConfig, Cell as CellType, CellType as CellTypeData } from '../types';
+import { Cell } from './Cell';
+import { Unit } from './Unit';
+import { Path } from './Path';
+import { BattleVisualization } from './BattleVisualization';
 
-interface NewGameProps {
+interface GameProps {
   config?: Partial<GameConfig>;
 }
 
-export const NewGame: React.FC<NewGameProps> = ({ config = {} }) => {
+export const Game: React.FC<GameProps> = ({ config = {} }) => {
   const [gameEngine] = useState(() => {
     const defaultConfig: GameConfig = {
       mapSize: { width: 1200, height: 800 },
       cellTypes: createDefaultCellTypes(),
       unitSpeed: 0.8, // units per second
       productionInterval: 3, // seconds
+      battleDuration: 4, // Base duration, but calculated dynamically
       ...config
     };
     return new GameEngine(defaultConfig);
@@ -34,12 +36,18 @@ export const NewGame: React.FC<NewGameProps> = ({ config = {} }) => {
     gameEngine.on('cell_captured', handleStateChange);
     gameEngine.on('units_arrived', handleStateChange);
     gameEngine.on('production_cycle', handleStateChange);
+    gameEngine.on('battle_started', handleStateChange);
+    gameEngine.on('battle_progress', handleStateChange);
+    gameEngine.on('battle_ended', handleStateChange);
 
     return () => {
       gameEngine.off('state_changed', handleStateChange);
       gameEngine.off('cell_captured', handleStateChange);
       gameEngine.off('units_arrived', handleStateChange);
       gameEngine.off('production_cycle', handleStateChange);
+      gameEngine.off('battle_started', handleStateChange);
+      gameEngine.off('battle_progress', handleStateChange);
+      gameEngine.off('battle_ended', handleStateChange);
     };
   }, [gameEngine]);
 
@@ -142,12 +150,12 @@ export const NewGame: React.FC<NewGameProps> = ({ config = {} }) => {
 
       {/* Paths */}
       {gameState.paths.map(path => (
-        <NewPath key={path.id} path={path} cells={gameState.cells} />
+        <Path key={path.id} path={path} cells={gameState.cells} />
       ))}
 
       {/* Cells */}
       {gameState.cells.map(cell => (
-        <NewCell
+        <Cell
           key={cell.id}
           cell={cell}
           isSelected={cell.id === selectedCellId}
@@ -157,14 +165,22 @@ export const NewGame: React.FC<NewGameProps> = ({ config = {} }) => {
 
       {/* Units */}
       {gameState.units.map(unit => (
-        <NewUnit key={unit.id} unit={unit} />
+        <Unit key={unit.id} unit={unit} />
       ))}
+
+      {/* Battles */}
+      {gameState.battles.map(battle => {
+        const targetCell = gameState.cells.find(c => c.id === battle.cellId);
+        return targetCell ? (
+          <BattleVisualization key={battle.id} battle={battle} cellPosition={targetCell.position} />
+        ) : null;
+      })}
     </div>
   );
 };
 
 // Helper functions
-function createDefaultCellTypes(): CellType[] {
+function createDefaultCellTypes(): CellTypeData[] {
   return [
     {
       id: 'standard',
@@ -196,9 +212,9 @@ function createDefaultCellTypes(): CellType[] {
   ];
 }
 
-function createInitialCells(gameEngine: GameEngine): Cell[] {
+function createInitialCells(gameEngine: GameEngine): CellType[] {
   const cellTypes = createDefaultCellTypes();
-  const cells: Cell[] = [];
+  const cells: CellType[] = [];
 
   // Create player starting cell
   cells.push({
@@ -244,5 +260,5 @@ function createInitialCells(gameEngine: GameEngine): Cell[] {
 }
 
 function generateId(): string {
-  return Math.random().toString(36).substr(2, 9);
+  return Math.random().toString(36).substring(2, 11);
 }

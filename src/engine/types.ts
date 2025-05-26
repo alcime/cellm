@@ -41,6 +41,10 @@ export interface Unit {
   unitCount: number;
   progress: number; // 0-1
   
+  // Battle state
+  battleState?: 'moving' | 'fighting' | 'retreating';
+  battlePosition?: Position; // Position during battle (offset from cell)
+  
   // Strategy game extensions
   unitType?: string;
   experience?: number;
@@ -60,10 +64,22 @@ export interface Path {
   thickness?: number;
 }
 
+export interface Battle {
+  id: string;
+  cellId: string;
+  attackers: Unit[];
+  defenderUnits: number;
+  defenderOwner: PlayerId;
+  startTime: number;
+  duration: number; // Total battle time in seconds
+  progress: number; // 0-1
+}
+
 export interface GameState {
   cells: Cell[];
   units: Unit[];
   paths: Path[];
+  battles: Battle[]; // Active battles
   
   // Game status
   currentPlayer: PlayerId;
@@ -82,6 +98,7 @@ export interface GameConfig {
   cellTypes: CellType[];
   unitSpeed: number;
   productionInterval: number;
+  battleDuration: number; // How long battles take in seconds
   
   // Strategy extensions
   enableResources?: boolean;
@@ -101,5 +118,8 @@ export type GameEventType =
   | 'units_sent'
   | 'cell_captured'
   | 'units_arrived'
+  | 'battle_started'
+  | 'battle_progress'
+  | 'battle_ended'
   | 'production_cycle'
   | 'game_ended';

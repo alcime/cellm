@@ -8,6 +8,33 @@
   }
 }
 
+/* Battle animations */
+@keyframes battle-pulse {
+  from {
+    transform: scale(1);
+    box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+  }
+  to {
+    transform: scale(1.2);
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.8);
+  }
+}
+
+@keyframes battle-explosion {
+  0% {
+    transform: scale(0.5);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(0.5);
+    opacity: 0.3;
+  }
+}
+
 /* General game styles */
 .app {
   margin: 0;
