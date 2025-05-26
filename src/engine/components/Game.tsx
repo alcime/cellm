@@ -142,9 +142,12 @@ export const Game: React.FC<GameProps> = ({ config = {} }) => {
           Click your green cells, then click target to send 60% of units
         </p>
         <p style={{ margin: '5px 0', fontSize: '12px' }}>
-          ⚙️ = Factory (faster production)<br/>
-          🛡️ = Fortress (stronger defense)<br/>
-          🌀 = Teleporter (instant transport)
+          ⚙️ = Factory (2x production)<br/>
+          🛡️ = Fortress (1.5x defense)<br/>
+          🌀 = Teleporter (special mechanics)
+        </p>
+        <p style={{ margin: '5px 0', fontSize: '11px', color: '#666' }}>
+          Battle Duration: 4s (2x advantage) to 10s (balanced)
         </p>
       </div>
 
@@ -214,47 +217,120 @@ function createDefaultCellTypes(): CellTypeData[] {
 
 function createInitialCells(gameEngine: GameEngine): CellType[] {
   const cellTypes = createDefaultCellTypes();
+  const [standard, factory, fortress, teleporter] = cellTypes;
   const cells: CellType[] = [];
 
-  // Create player starting cell
+  // Player starting area (left side)
   cells.push({
     id: generateId(),
-    position: { x: 200, y: 400 },
-    units: 10,
+    position: { x: 150, y: 300 },
+    units: 12,
     owner: 'player',
-    type: cellTypes[0] // standard
+    type: standard
   });
 
-  // Create enemy starting cell
+  // Enemy starting area (right side)  
   cells.push({
     id: generateId(),
-    position: { x: 1000, y: 400 },
-    units: 15,
+    position: { x: 1050, y: 300 },
+    units: 12,
     owner: 'enemy',
-    type: cellTypes[0] // standard
+    type: standard
   });
 
-  // Create neutral cells with different types
-  for (let i = 0; i < 8; i++) {
-    const typeIndex = Math.floor(Math.random() * cellTypes.length);
-    const x = 300 + Math.random() * 600;
-    const y = 150 + Math.random() * 500;
+  // Strategic neutral cells in center area
+  
+  // Row 1 (top) - Mixed types for testing
+  cells.push({
+    id: generateId(),
+    position: { x: 400, y: 150 },
+    units: 3,
+    owner: 'neutral',
+    type: factory // Fast production
+  });
+  
+  cells.push({
+    id: generateId(),
+    position: { x: 600, y: 150 },
+    units: 8,
+    owner: 'neutral',
+    type: fortress // Strong defense
+  });
+  
+  cells.push({
+    id: generateId(),
+    position: { x: 800, y: 150 },
+    units: 2,
+    owner: 'neutral',
+    type: teleporter // Special mechanics
+  });
 
-    // Ensure cells aren't too close together
-    const tooClose = cells.some(cell => 
-      gameEngine.distance(cell.position, { x, y }) < 120
-    );
+  // Row 2 (center) - Key strategic positions
+  cells.push({
+    id: generateId(),
+    position: { x: 350, y: 300 },
+    units: 5,
+    owner: 'neutral',
+    type: standard
+  });
+  
+  cells.push({
+    id: generateId(),
+    position: { x: 600, y: 300 },
+    units: 6,
+    owner: 'neutral',
+    type: fortress // Central fortress
+  });
+  
+  cells.push({
+    id: generateId(),
+    position: { x: 850, y: 300 },
+    units: 4,
+    owner: 'neutral',
+    type: standard
+  });
 
-    if (!tooClose) {
-      cells.push({
-        id: generateId(),
-        position: { x, y },
-        units: Math.floor(Math.random() * 5) + 1,
-        owner: 'neutral',
-        type: cellTypes[typeIndex]
-      });
-    }
-  }
+  // Row 3 (bottom) - Resource and testing cells
+  cells.push({
+    id: generateId(),
+    position: { x: 400, y: 450 },
+    units: 1,
+    owner: 'neutral',
+    type: factory // Easy to capture factory
+  });
+  
+  cells.push({
+    id: generateId(),
+    position: { x: 600, y: 450 },
+    units: 3,
+    owner: 'neutral',
+    type: standard
+  });
+  
+  cells.push({
+    id: generateId(),
+    position: { x: 800, y: 450 },
+    units: 2,
+    owner: 'neutral',
+    type: teleporter
+  });
+
+  // Flanking positions
+  cells.push({
+    id: generateId(),
+    position: { x: 300, y: 500 },
+    units: 4,
+    owner: 'neutral',
+    type: standard
+  });
+  
+  cells.push({
+    id: generateId(),
+    position: { x: 900, y: 100 },
+    units: 3,
+    owner: 'neutral',
+    type: factory
+  });
 
   return cells;
 }

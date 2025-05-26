@@ -218,19 +218,26 @@ export class GameEngine {
     let battle = this.state.battles.find(b => b.cellId === targetCell.id);
     
     if (battle) {
-      // Join existing battle
+      // Join existing battle - store initial unit count for this unit
       unit.battleState = 'fighting';
       unit.battlePosition = this.calculateBattlePosition(targetCell.position, battle.attackers.length);
+      (unit as any).initialUnitCount = unit.unitCount; // Store before adding to battle
       battle.attackers.push(unit);
       
-      // Recalculate battle duration with new forces
-      const totalAttackers = battle.attackers.reduce((sum, a) => sum + a.unitCount, 0);
-      const newDuration = this.calculateBattleDuration(totalAttackers, battle.defenderUnits);
+      // Update total initial attackers
+      const newTotalInitialAttackers = battle.attackers.reduce((sum, a) => sum + ((a as any).initialUnitCount || 0), 0);
+      (battle as any).initialAttackerUnits = newTotalInitialAttackers;
+      
+      // Recalculate battle duration with new forces  
+      const newDuration = this.calculateBattleDuration(newTotalInitialAttackers, battle.defenderUnits);
       battle.duration = newDuration * 1000; // Convert to milliseconds
     } else {
       // Start new battle
       unit.battleState = 'fighting';
       unit.battlePosition = this.calculateBattlePosition(targetCell.position, 0);
+      
+      // Store initial unit count BEFORE creating battle
+      (unit as any).initialUnitCount = unit.unitCount;
       
       const battleDuration = this.calculateBattleDuration(unit.unitCount, targetCell.units);
       
@@ -245,9 +252,9 @@ export class GameEngine {
         progress: 0
       };
       
-      // Store initial values for UI
+      // Store initial values for battle calculations
       (battle as any).initialDefenderUnits = targetCell.units;
-      (unit as any).initialUnitCount = unit.unitCount;
+      (battle as any).initialAttackerUnits = unit.unitCount;
       
       this.state.battles.push(battle);
       this.emit('battle_started', { battle, targetCell });
@@ -298,8 +305,8 @@ export class GameEngine {
 
       this.emit('battle_progress', { battle });
 
-      // Check if battle is complete
-      if (battle.progress >= 1 || battle.defenderUnits <= 0 || battle.attackers.every(a => a.unitCount <= 0)) {
+      // Check if battle is complete - only end when time is up
+      if (battle.progress >= 1) {
         this.resolveBattle(battle);
         completedBattles.push(battle);
       }
@@ -313,14 +320,12 @@ export class GameEngine {
     const targetCell = this.state.cells.find(c => c.id === battle.cellId);
     if (!targetCell) return;
     
-    // Get initial forces
-    const initialAttackers = (battle as any).initialAttackerUnits || 
-      battle.attackers.reduce((sum, a) => sum + ((a as any).initialUnitCount || a.unitCount), 0);
-    const initialDefenders = (battle as any).initialDefenderUnits || battle.defenderUnits;
+    // Get initial forces (these should always be set now)
+    const initialAttackers = (battle as any).initialAttackerUnits;
+    const initialDefenders = (battle as any).initialDefenderUnits;
     
-    // Store initial values if not already stored
-    if (!(battle as any).initialAttackerUnits) {
-      (battle as any).initialAttackerUnits = initialAttackers;
+    if (!initialAttackers || !initialDefenders) {
+      return; // Skip battle calculation if initial values missing
     }
 
     const defenseBonus = targetCell.type.defenseBonus || 1;
@@ -357,7 +362,10 @@ export class GameEngine {
     if (initialAttackers > 0) {
       const attackerSurvivalRate = currentAttackers / initialAttackers;
       for (const attacker of battle.attackers) {
-        const originalUnits = (attacker as any).initialUnitCount || attacker.unitCount;
+        const originalUnits = (attacker as any).initialUnitCount;
+        if (!originalUnits) {
+          continue; // Skip if initial unit count missing
+        }
         attacker.unitCount = Math.max(0, originalUnits * attackerSurvivalRate);
       }
     }
@@ -367,10 +375,9 @@ export class GameEngine {
     const targetCell = this.state.cells.find(c => c.id === battle.cellId);
     if (!targetCell) return;
 
-    // Calculate final outcome based on initial forces (same logic as damage calculation)
-    const initialAttackers = (battle as any).initialAttackerUnits || 
-      battle.attackers.reduce((sum, a) => sum + ((a as any).initialUnitCount || a.unitCount), 0);
-    const initialDefenders = (battle as any).initialDefenderUnits || battle.defenderUnits;
+    // Use stored initial forces for final outcome determination
+    const initialAttackers = (battle as any).initialAttackerUnits;
+    const initialDefenders = (battle as any).initialDefenderUnits;
     const defenseBonus = targetCell.type.defenseBonus || 1;
     const effectiveDefenders = initialDefenders * defenseBonus;
 
