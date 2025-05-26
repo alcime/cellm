@@ -143,8 +143,7 @@ export const Game: React.FC<GameProps> = ({ config = {} }) => {
         </p>
         <p style={{ margin: '5px 0', fontSize: '12px' }}>
           ⚙️ = Factory (2x production)<br/>
-          🛡️ = Fortress (1.5x defense)<br/>
-          🌀 = Teleporter (special mechanics)
+          🛡️ = Fortress (1.5x defense)
         </p>
         <p style={{ margin: '5px 0', fontSize: '11px', color: '#666' }}>
           Battle Duration: 4s (2x advantage) to 10s (balanced)
@@ -204,20 +203,13 @@ function createDefaultCellTypes(): CellTypeData[] {
       productionMultiplier: 1,
       defenseBonus: 1.5,
       special: { fortress: true }
-    },
-    {
-      id: 'teleporter',
-      name: 'Teleporter',
-      productionMultiplier: 1,
-      defenseBonus: 1,
-      special: { teleport: true }
     }
   ];
 }
 
 function createInitialCells(): CellType[] {
   const cellTypes = createDefaultCellTypes();
-  const [standard, factory, fortress, teleporter] = cellTypes;
+  const [standard, factory, fortress] = cellTypes;
   const cells: CellType[] = [];
 
   // Player starting area (left side)
@@ -262,7 +254,7 @@ function createInitialCells(): CellType[] {
     position: { x: 800, y: 150 },
     units: 2,
     owner: 'neutral',
-    type: teleporter // Special mechanics
+    type: standard // Was teleporter
   });
 
   // Row 2 (center) - Key strategic positions
@@ -312,7 +304,7 @@ function createInitialCells(): CellType[] {
     position: { x: 800, y: 450 },
     units: 2,
     owner: 'neutral',
-    type: teleporter
+    type: standard // Was teleporter
   });
 
   // Flanking positions

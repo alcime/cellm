@@ -59,6 +59,5 @@ function getCellColor(owner: string): string {
 function getCellIcon(cellType: any): string {
   if (cellType.special?.factory) return '⚙️';
   if (cellType.special?.fortress) return '🛡️';
-  if (cellType.special?.teleport) return '🌀';
   return '';
 }

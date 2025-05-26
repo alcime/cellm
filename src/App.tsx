@@ -7,7 +7,7 @@ import './styles.css';
  * 
  * Features:
  * - Clean, extensible game engine
- * - Different cell types (factory, fortress, teleporter)
+ * - Different cell types (factory, fortress)
  * - Consistent coordinate system
  * - Ready for strategy game extensions
  */

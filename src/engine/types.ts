@@ -14,7 +14,6 @@ export interface CellType {
   defenseBonus: number;
   maxUnits?: number;
   special?: {
-    teleport?: boolean;
     factory?: boolean;
     fortress?: boolean;
   };
