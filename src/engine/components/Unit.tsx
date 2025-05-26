@@ -11,7 +11,7 @@ export const Unit: React.FC<UnitProps> = ({ unit }) => {
   // Use battlePosition during battles, otherwise use regular position
   const displayPosition = unit.battlePosition || unit.position;
   
-  // Simple, direct positioning - no transforms
+  // Simple, direct positioning with smooth transitions
   const style: React.CSSProperties = {
     position: 'absolute',
     left: displayPosition.x - size / 2, // Center the unit
@@ -31,7 +31,9 @@ export const Unit: React.FC<UnitProps> = ({ unit }) => {
     zIndex: 15,
     boxShadow: `0 0 ${size/4}px ${getUnitColor(unit.owner)}`,
     animation: unit.battleState === 'fighting' ? 'battle-pulse 0.5s infinite alternate' : 
-               unit.unitCount > 10 ? 'pulse 1s infinite alternate' : 'none'
+               unit.unitCount > 10 ? 'pulse 1s infinite alternate' : 'none',
+    // Remove CSS transitions to prevent conflict with smooth JS animation
+    // transition: 'width 0.2s ease, height 0.2s ease'
   };
 
   return (

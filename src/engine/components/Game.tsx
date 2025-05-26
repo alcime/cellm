@@ -15,7 +15,7 @@ export const Game: React.FC<GameProps> = ({ config = {} }) => {
     const defaultConfig: GameConfig = {
       mapSize: { width: 1200, height: 800 },
       cellTypes: createDefaultCellTypes(),
-      unitSpeed: 0.8, // units per second
+      unitSpeed: 1.0, // Base movement speed
       productionInterval: 3, // seconds
       battleDuration: 4, // Base duration, but calculated dynamically
       ...config
@@ -53,7 +53,7 @@ export const Game: React.FC<GameProps> = ({ config = {} }) => {
 
   // Initialize game
   useEffect(() => {
-    const cells = createInitialCells(gameEngine);
+    const cells = createInitialCells();
     gameEngine.setCells(cells);
     gameEngine.start();
 
@@ -90,7 +90,7 @@ export const Game: React.FC<GameProps> = ({ config = {} }) => {
 
   const handleRestart = () => {
     gameEngine.stop();
-    const cells = createInitialCells(gameEngine);
+    const cells = createInitialCells();
     gameEngine.setCells(cells);
     setSelectedCellId(null);
     gameEngine.start();
@@ -215,7 +215,7 @@ function createDefaultCellTypes(): CellTypeData[] {
   ];
 }
 
-function createInitialCells(gameEngine: GameEngine): CellType[] {
+function createInitialCells(): CellType[] {
   const cellTypes = createDefaultCellTypes();
   const [standard, factory, fortress, teleporter] = cellTypes;
   const cells: CellType[] = [];

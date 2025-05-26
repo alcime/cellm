@@ -77,6 +77,12 @@ export class GameEngine {
     // Remove units from source
     sourceCell.units -= unitCount;
 
+    // Calculate distance-based travel speed
+    const distance = this.distance(sourceCell.position, targetCell.position);
+    // Base speed for 200px distance, proportionally slower for longer distances
+    const normalizedDistance = Math.max(50, distance); // Minimum 50px for very close cells
+    const travelSpeed = (200 / normalizedDistance) * this.config.unitSpeed;
+
     // Create moving unit
     const unit: Unit = {
       id: this.generateId(),
@@ -84,7 +90,8 @@ export class GameEngine {
       position: { ...sourceCell.position },
       targetCellId,
       unitCount,
-      progress: 0
+      progress: 0,
+      travelSpeed
     };
 
     // Create or update path
@@ -122,10 +129,11 @@ export class GameEngine {
       const targetCell = this.state.cells.find(c => c.id === unit.targetCellId);
       if (!targetCell) continue;
 
-      // Update progress
-      const speed = this.config.unitSpeed * deltaTime;
+      // Update progress with distance-based speed
+      const speed = unit.travelSpeed * deltaTime;
       unit.progress = Math.min(1, unit.progress + speed);
-
+      
+      // Always update position for smooth movement - no threshold check
       // Calculate position based on path type
       const sourceCell = this.state.cells.find(c => 
         this.state.paths.some(p => 
@@ -169,13 +177,17 @@ export class GameEngine {
     progress: number,
     pathType: 'straight' | 'curved'
   ): Position {
+    // Use linear progress for more consistent movement speed
+    // (easing was causing apparent speed changes)
+    const easedProgress = progress;
+    
     if (pathType === 'straight') {
       return {
-        x: source.x + (target.x - source.x) * progress,
-        y: source.y + (target.y - source.y) * progress
+        x: source.x + (target.x - source.x) * easedProgress,
+        y: source.y + (target.y - source.y) * easedProgress
       };
     } else {
-      // Curved path using quadratic bezier
+      // Curved path using quadratic bezier with easing
       const midX = (source.x + target.x) / 2;
       const midY = (source.y + target.y) / 2;
       
@@ -188,8 +200,8 @@ export class GameEngine {
       const ctrlX = midX + perpX;
       const ctrlY = midY + perpY;
       
-      // Quadratic bezier formula
-      const t = progress;
+      // Quadratic bezier formula with easing
+      const t = easedProgress;
       const mt = 1 - t;
       
       return {
@@ -197,6 +209,11 @@ export class GameEngine {
         y: mt * mt * source.y + 2 * mt * t * ctrlY + t * t * target.y
       };
     }
+  }
+
+  // Smooth easing function for natural movement
+  private easeInOutQuad(t: number): number {
+    return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
   }
 
   private processUnitArrival(unit: Unit): void {
@@ -293,7 +310,7 @@ export class GameEngine {
   // BATTLE SYSTEM
   // ===================
 
-  private updateBattles(deltaTime: number): void {
+  private updateBattles(): void {
     const completedBattles: Battle[] = [];
 
     for (const battle of this.state.battles) {
@@ -301,7 +318,7 @@ export class GameEngine {
       battle.progress = Math.min(1, elapsed / battle.duration);
 
       // Calculate battle damage over time
-      this.processBattleDamage(battle, deltaTime);
+      this.processBattleDamage(battle);
 
       this.emit('battle_progress', { battle });
 
@@ -316,7 +333,7 @@ export class GameEngine {
     this.state.battles = this.state.battles.filter(b => !completedBattles.includes(b));
   }
 
-  private processBattleDamage(battle: Battle, deltaTime: number): void {
+  private processBattleDamage(battle: Battle): void {
     const targetCell = this.state.cells.find(c => c.id === battle.cellId);
     if (!targetCell) return;
     
@@ -440,7 +457,7 @@ export class GameEngine {
       this.updateUnits(deltaTime);
 
       // Update battles
-      this.updateBattles(deltaTime);
+      this.updateBattles();
 
       // Production every interval
       productionTimer += deltaTime;

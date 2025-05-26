@@ -41,6 +41,9 @@ export interface Unit {
   unitCount: number;
   progress: number; // 0-1
   
+  // Movement properties
+  travelSpeed: number; // units per second based on distance
+  
   // Battle state
   battleState?: 'moving' | 'fighting' | 'retreating';
   battlePosition?: Position; // Position during battle (offset from cell)
