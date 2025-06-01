@@ -7,6 +7,10 @@ import { Unit } from './Unit';
 import { Path } from './Path';
 import { BattleVisualization } from './BattleVisualization';
 import { AIStrategySelector } from './AIStrategySelector';
+import { GameSetup } from '../../components/GameSetup';
+import { Button } from '../../components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Play, Pause, Square, RotateCcw, Settings, Info, Zap, HelpCircle } from 'lucide-react';
 
 interface GameProps {
   config?: Partial<GameConfig>;
@@ -29,6 +33,12 @@ export const Game: React.FC<GameProps> = ({ config = {} }) => {
   const [selectedCellId, setSelectedCellId] = useState<string | null>(null);
   const [showStrategySelector, setShowStrategySelector] = useState(false);
   const [currentStrategy, setCurrentStrategy] = useState<StrategyType>('simple');
+  const [isAutoPlaying, setIsAutoPlaying] = useState(false);
+  const [autoPlaySpeed, setAutoPlaySpeed] = useState(1.0);
+  const [gameStarted, setGameStarted] = useState(false);
+  const [showSetup, setShowSetup] = useState(true);
+  const [showGameInfo, setShowGameInfo] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
 
   // Subscribe to game state changes
   useEffect(() => {
@@ -55,16 +65,29 @@ export const Game: React.FC<GameProps> = ({ config = {} }) => {
     };
   }, [gameEngine]);
 
-  // Initialize game
+  // Initialize game but don't start automatically
   useEffect(() => {
     const cells = createInitialCells();
     gameEngine.setCells(cells);
-    gameEngine.start();
 
     return () => {
       gameEngine.stop();
     };
   }, [gameEngine]);
+
+  // Auto-play effect
+  useEffect(() => {
+    if (!isAutoPlaying || !gameStarted || gameState.winner) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      // Have the AI make decisions for the player too
+      gameEngine.aiMakeDecisions();
+    }, Math.max(500, 2000 / autoPlaySpeed)); // Minimum 500ms between decisions
+
+    return () => clearInterval(interval);
+  }, [isAutoPlaying, gameStarted, gameState.winner, autoPlaySpeed, gameEngine]);
 
   // Handle cell clicks
   const handleCellClick = useCallback((cellId: string) => {
@@ -92,12 +115,46 @@ export const Game: React.FC<GameProps> = ({ config = {} }) => {
     gameEngine.clickCell(cellId);
   }, [selectedCellId, gameState.cells, gameEngine]);
 
+  const handleStart = () => {
+    if (!gameStarted) {
+      gameEngine.start();
+      setGameStarted(true);
+      setShowSetup(false);
+    }
+  };
+
+  const handleStop = () => {
+    gameEngine.stop();
+    gameEngine.removeAIPlayer('player'); // Clean up player AI
+    setGameStarted(false);
+    setIsAutoPlaying(false);
+  };
+
   const handleRestart = () => {
     gameEngine.stop();
+    gameEngine.removeAIPlayer('player'); // Clean up player AI
     const cells = createInitialCells();
     gameEngine.setCells(cells);
     setSelectedCellId(null);
-    gameEngine.start();
+    setGameStarted(false);
+    setIsAutoPlaying(false);
+    setShowSetup(true);
+  };
+
+  const toggleAutoPlay = () => {
+    if (!gameStarted) {
+      handleStart();
+    }
+    
+    if (!isAutoPlaying) {
+      // Enable auto-play: add player as AI
+      gameEngine.addAIPlayer({ playerId: 'player', strategyType: currentStrategy });
+    } else {
+      // Disable auto-play: remove player from AI
+      gameEngine.removeAIPlayer('player');
+    }
+    
+    setIsAutoPlaying(!isAutoPlaying);
   };
 
   const handleStrategyChange = (newStrategy: StrategyType) => {
@@ -105,6 +162,26 @@ export const Game: React.FC<GameProps> = ({ config = {} }) => {
     gameEngine.switchAIStrategy('enemy', newStrategy);
     console.log(`Switched AI to ${newStrategy} strategy`);
   };
+
+  const availableStrategies = [
+    { type: 'simple' as StrategyType, name: 'Simple', description: 'Balanced approach with standard aggression' },
+    { type: 'aggressive' as StrategyType, name: 'Aggressive', description: 'High aggression, rapid attacks' },
+    { type: 'defensive' as StrategyType, name: 'Defensive', description: 'Conservative, defense-focused' },
+    { type: 'economic' as StrategyType, name: 'Economic', description: 'Growth and high-value territories' },
+    { type: 'swarm' as StrategyType, name: 'Swarm', description: 'Coordinated multi-unit attacks' }
+  ];
+
+  // Show setup screen if not started
+  if (showSetup) {
+    return (
+      <GameSetup
+        currentStrategy={currentStrategy}
+        onStrategyChange={handleStrategyChange}
+        onStartGame={handleStart}
+        availableStrategies={availableStrategies}
+      />
+    );
+  }
 
   return (
     <div 
@@ -116,55 +193,143 @@ export const Game: React.FC<GameProps> = ({ config = {} }) => {
         overflow: 'hidden'
       }}
     >
-      {/* Game Status */}
-      <div style={{
-        position: 'absolute',
-        top: 20,
-        left: 20,
-        zIndex: 100,
-        background: 'rgba(255,255,255,0.9)',
-        padding: '10px',
-        borderRadius: '8px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-      }}>
-        <div><strong>Turn:</strong> {gameState.turn}</div>
-        <div><strong>Phase:</strong> {gameState.gamePhase}</div>
-        {gameState.winner && <div><strong>Winner:</strong> {gameState.winner}</div>}
-        <button onClick={handleRestart} style={{ marginTop: '10px' }}>
-          Restart Game
-        </button>
-        <button 
-          onClick={() => setShowStrategySelector(!showStrategySelector)} 
-          style={{ marginTop: '5px', marginLeft: '10px' }}
-        >
-          AI Strategy
-        </button>
+      {/* Compact Floating Toolbar */}
+      <div className="absolute top-4 left-4 z-50 flex items-center gap-2">
+        {/* Main Controls */}
+        <div className="flex items-center bg-white/90 backdrop-blur-sm rounded-lg shadow-lg border">
+          {!gameStarted ? (
+            <Button onClick={handleStart} size="sm" className="rounded-r-none">
+              <Play className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Button 
+              onClick={toggleAutoPlay} 
+              size="sm"
+              variant={isAutoPlaying ? "destructive" : "default"}
+              className="rounded-r-none"
+            >
+              {isAutoPlaying ? <Pause className="h-4 w-4" /> : <Zap className="h-4 w-4" />}
+            </Button>
+          )}
+          
+          {gameStarted && (
+            <Button onClick={handleStop} size="sm" variant="secondary" className="rounded-none border-l">
+              <Square className="h-4 w-4" />
+            </Button>
+          )}
+          
+          <Button onClick={handleRestart} size="sm" variant="outline" className="rounded-none border-l">
+            <RotateCcw className="h-4 w-4" />
+          </Button>
+          
+          <Button 
+            onClick={() => setShowGameInfo(!showGameInfo)} 
+            size="sm" 
+            variant="ghost"
+            className="rounded-l-none border-l"
+          >
+            <Info className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Speed Control (when auto-playing) */}
+        {isAutoPlaying && (
+          <div className="flex items-center bg-white/90 backdrop-blur-sm rounded-lg shadow-lg border px-3 py-2">
+            <span className="text-xs font-medium mr-2">{autoPlaySpeed.toFixed(1)}x</span>
+            <input
+              type="range"
+              min="0.5"
+              max="5"
+              step="0.5"
+              value={autoPlaySpeed}
+              onChange={(e) => setAutoPlaySpeed(parseFloat(e.target.value))}
+              className="w-16 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+            />
+          </div>
+        )}
+
+        {/* Winner Badge */}
+        {gameState.winner && (
+          <div className="bg-green-500 text-white px-3 py-2 rounded-lg shadow-lg font-medium text-sm">
+            🏆 {gameState.winner} wins!
+          </div>
+        )}
       </div>
 
-      {/* Instructions */}
-      <div style={{
-        position: 'absolute',
-        top: 20,
-        right: 20,
-        zIndex: 100,
-        background: 'rgba(255,255,255,0.9)',
-        padding: '10px',
-        borderRadius: '8px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        maxWidth: '200px'
-      }}>
-        <h4 style={{ margin: '0 0 10px 0' }}>Instructions</h4>
-        <p style={{ margin: '5px 0', fontSize: '12px' }}>
-          Click your green cells, then click target to send 60% of units
-        </p>
-        <p style={{ margin: '5px 0', fontSize: '12px' }}>
-          ⚙️ = Factory (2x production)<br/>
-          🛡️ = Fortress (1.5x defense)
-        </p>
-        <p style={{ margin: '5px 0', fontSize: '11px', color: '#666' }}>
-          Battle Duration: 4s (2x advantage) to 10s (balanced)
-        </p>
+      {/* Expandable Game Info Panel */}
+      {showGameInfo && (
+        <Card className="absolute top-16 left-4 z-40 bg-white/95 backdrop-blur-sm w-48">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center justify-between">
+              Game Info
+              <Button 
+                onClick={() => setShowGameInfo(false)} 
+                size="sm" 
+                variant="ghost" 
+                className="h-6 w-6 p-0"
+              >
+                ×
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-xs">
+            <div><strong>Turn:</strong> {gameState.turn}</div>
+            <div><strong>Phase:</strong> {gameState.gamePhase}</div>
+            <div><strong>Status:</strong> {gameStarted ? (isAutoPlaying ? 'Auto-Playing' : 'Manual') : 'Stopped'}</div>
+            <div><strong>Strategy:</strong> {currentStrategy}</div>
+            <Button 
+              onClick={() => setShowStrategySelector(!showStrategySelector)} 
+              size="sm"
+              variant="outline"
+              className="w-full mt-2"
+            >
+              <Settings className="h-3 w-3 mr-1" />
+              Change AI
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Compact Help Button */}
+      <div className="absolute top-4 right-4 z-50">
+        <Button 
+          onClick={() => setShowInstructions(!showInstructions)} 
+          size="sm" 
+          variant="outline"
+          className="bg-white/90 backdrop-blur-sm"
+        >
+          <HelpCircle className="h-4 w-4" />
+        </Button>
       </div>
+
+      {/* Expandable Instructions Panel */}
+      {showInstructions && (
+        <Card className="absolute top-16 right-4 z-40 bg-white/95 backdrop-blur-sm max-w-[220px]">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center justify-between">
+              Instructions
+              <Button 
+                onClick={() => setShowInstructions(false)} 
+                size="sm" 
+                variant="ghost" 
+                className="h-6 w-6 p-0"
+              >
+                ×
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-xs">
+            <p>Click your green cells, then click target to send 60% of units</p>
+            <div className="space-y-1">
+              <p>⚙️ = Factory (2x production)</p>
+              <p>🛡️ = Fortress (1.5x defense)</p>
+            </div>
+            <p className="text-xs text-gray-600 pt-1 border-t">
+              Battle Duration: 4s (2x advantage) to 10s (balanced)
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* AI Strategy Selector */}
       {showStrategySelector && (

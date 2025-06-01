@@ -669,6 +669,10 @@ export class GameEngine {
     }
   }
 
+  public aiMakeDecisions(): void {
+    this.updateAI();
+  }
+
   // ===================
   // UTILITIES
   // ===================
