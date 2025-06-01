@@ -171,6 +171,15 @@ export const Game: React.FC<GameProps> = ({ config = {} }) => {
     console.log(`Switched AI to ${newStrategy} strategy`);
   };
 
+  // Handle clicks on empty space to deselect cells (always define this hook)
+  const handleBackgroundClick = useCallback((e: React.MouseEvent) => {
+    // Only deselect if clicking on the background itself (not child elements)
+    if (e.target === e.currentTarget) {
+      setSelectedCellId(null);
+      setShowRangeIndicator(null);
+    }
+  }, []);
+
   const availableStrategies = [
     { type: 'simple' as StrategyType, name: 'Simple', description: 'Balanced approach with standard aggression' },
     { type: 'aggressive' as StrategyType, name: 'Aggressive', description: 'High aggression, rapid attacks' },
@@ -200,6 +209,7 @@ export const Game: React.FC<GameProps> = ({ config = {} }) => {
         backgroundColor: '#f0f0f0',
         overflow: 'hidden'
       }}
+      onClick={handleBackgroundClick}
     >
       {/* Compact Floating Toolbar */}
       <div className="absolute top-4 left-4 z-50 flex items-center gap-2">
@@ -341,19 +351,33 @@ export const Game: React.FC<GameProps> = ({ config = {} }) => {
 
       {/* AI Strategy Selector */}
       {showStrategySelector && (
-        <div style={{
-          position: 'absolute',
-          top: 200,
-          left: 20,
-          zIndex: 200
-        }}>
-          <AIStrategySelector
-            currentStrategy={currentStrategy}
-            onStrategyChange={handleStrategyChange}
-            availableStrategies={gameEngine.listAvailableStrategies()}
-            disabled={gameState.gamePhase !== 'playing'}
+        <>
+          {/* Backdrop to catch clicks outside */}
+          <div 
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 199
+            }}
+            onClick={() => setShowStrategySelector(false)}
           />
-        </div>
+          <div style={{
+            position: 'absolute',
+            top: 200,
+            left: 20,
+            zIndex: 200
+          }}>
+            <AIStrategySelector
+              currentStrategy={currentStrategy}
+              onStrategyChange={handleStrategyChange}
+              availableStrategies={gameEngine.listAvailableStrategies()}
+              disabled={gameState.gamePhase !== 'playing'}
+            />
+          </div>
+        </>
       )}
 
       {/* Paths */}
