@@ -88,11 +88,11 @@ export class GameEngine {
     // Remove units from source
     sourceCell.units -= unitCount;
 
-    // Calculate distance-based travel speed
+    // Calculate distance-based travel speed for consistent travel time
     const distance = this.distance(sourceCell.position, targetCell.position);
-    // Base speed for 200px distance, proportionally slower for longer distances
-    const normalizedDistance = Math.max(50, distance); // Minimum 50px for very close cells
-    const travelSpeed = (200 / normalizedDistance) * this.config.unitSpeed;
+    // Aim for consistent 2-3 second travel time regardless of distance
+    const targetTravelTime = 2.5; // seconds
+    const travelSpeed = 1 / (targetTravelTime * this.config.unitSpeed);
 
     // Create moving unit
     const unit: Unit = {
@@ -135,36 +135,43 @@ export class GameEngine {
 
   private updateUnits(deltaTime: number): void {
     const arrivedUnits: Unit[] = [];
+    let hasMovement = false;
 
     for (const unit of this.state.units) {
       const targetCell = this.state.cells.find(c => c.id === unit.targetCellId);
       if (!targetCell) continue;
 
+      const oldProgress = unit.progress;
+
       // Update progress with distance-based speed
       const speed = unit.travelSpeed * deltaTime;
       unit.progress = Math.min(1, unit.progress + speed);
       
-      // Always update position for smooth movement - no threshold check
-      // Calculate position based on path type
-      const sourceCell = this.state.cells.find(c => 
-        this.state.paths.some(p => 
-          p.targetCellId === unit.targetCellId && 
-          p.sourceCellId === c.id &&
-          p.owner === unit.owner
-        )
-      );
-
-      if (sourceCell) {
-        const path = this.state.paths.find(p => 
-          p.sourceCellId === sourceCell.id && p.targetCellId === targetCell.id
+      // Only update position if there's meaningful movement (reduces jitter)
+      if (Math.abs(unit.progress - oldProgress) > 0.001) {
+        hasMovement = true;
+        
+        // Calculate position based on path type
+        const sourceCell = this.state.cells.find(c => 
+          this.state.paths.some(p => 
+            p.targetCellId === unit.targetCellId && 
+            p.sourceCellId === c.id &&
+            p.owner === unit.owner
+          )
         );
 
-        unit.position = this.calculateUnitPosition(
-          sourceCell.position,
-          targetCell.position,
-          unit.progress,
-          path?.type || 'straight'
-        );
+        if (sourceCell) {
+          const path = this.state.paths.find(p => 
+            p.sourceCellId === sourceCell.id && p.targetCellId === targetCell.id
+          );
+
+          unit.position = this.calculateUnitPosition(
+            sourceCell.position,
+            targetCell.position,
+            unit.progress,
+            path?.type || 'straight'
+          );
+        }
       }
 
       // Check if arrived
@@ -180,6 +187,11 @@ export class GameEngine {
 
     // Remove arrived units
     this.state.units = this.state.units.filter(u => u.progress < 1);
+
+    // Only emit state change if there was actual movement or unit arrivals
+    if (hasMovement || arrivedUnits.length > 0) {
+      this.emit('state_changed', { units: this.state.units });
+    }
   }
 
   private calculateUnitPosition(
@@ -588,8 +600,11 @@ export class GameEngine {
 
     const loop = () => {
       const currentTime = Date.now();
-      const deltaTime = (currentTime - lastTime) / 1000; // Convert to seconds
+      let deltaTime = (currentTime - lastTime) / 1000; // Convert to seconds
       lastTime = currentTime;
+
+      // Cap deltaTime to prevent huge jumps on frame drops or lag spikes
+      deltaTime = Math.min(deltaTime, 0.1); // Max 100ms per frame
 
       // Update units
       this.updateUnits(deltaTime);

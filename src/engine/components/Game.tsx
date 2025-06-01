@@ -21,7 +21,7 @@ export const Game: React.FC<GameProps> = ({ config = {} }) => {
     const defaultConfig: GameConfig = {
       mapSize: { width: 1200, height: 800 },
       cellTypes: createDefaultCellTypes(),
-      unitSpeed: 1.0, // Base movement speed
+      unitSpeed: 0.5, // Base movement speed (slower for smoother animation)
       productionInterval: 3, // seconds
       battleDuration: 4, // Base duration, but calculated dynamically
       ...config
