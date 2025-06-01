@@ -121,7 +121,9 @@ export type GameEventType =
   | 'cell_captured'
   | 'units_arrived'
   | 'battle_started'
+  | 'battle_joined'
   | 'battle_progress'
   | 'battle_ended'
+  | 'defenders_reinforced'
   | 'production_cycle'
   | 'game_ended';

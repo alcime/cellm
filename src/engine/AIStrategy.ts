@@ -19,14 +19,54 @@ export class AIStrategy {
 
     console.log(`AI found ${aiCells.length} cells owned by ${this.playerId}`);
 
+    // Track planned attacks to coordinate multiple attackers
+    const plannedAttacks = new Map<string, { totalUnits: number, attackers: AIDecision[] }>();
+
+    // First pass: evaluate potential attacks
+    const potentialDecisions: AIDecision[] = [];
     for (const aiCell of aiCells) {
       console.log(`Evaluating AI cell ${aiCell.id} with ${aiCell.units} units`);
       const decision = this.evaluateCell(aiCell, gameState);
       if (decision) {
-        decisions.push(decision);
-        console.log(`Decision made: attack ${decision.targetCellId} with ${decision.unitCount} units`);
+        potentialDecisions.push(decision);
+      }
+    }
+
+    // Second pass: coordinate attacks on same targets
+    for (const decision of potentialDecisions) {
+      if (!plannedAttacks.has(decision.targetCellId)) {
+        plannedAttacks.set(decision.targetCellId, { totalUnits: 0, attackers: [] });
+      }
+      
+      const attack = plannedAttacks.get(decision.targetCellId)!;
+      attack.totalUnits += decision.unitCount;
+      attack.attackers.push(decision);
+    }
+
+    // Third pass: finalize coordinated attacks
+    for (const [targetCellId, attack] of Array.from(plannedAttacks.entries())) {
+      const targetCell = gameState.cells.find(c => c.id === targetCellId);
+      if (!targetCell) continue;
+
+      // Check if combined force is sufficient (2x advantage instead of 4x for coordinated attacks)
+      const requiredUnits = targetCell.units * 2;
+      
+      if (attack.totalUnits >= requiredUnits) {
+        // All attackers proceed
+        for (const decision of attack.attackers) {
+          decisions.push(decision);
+          console.log(`Coordinated attack: ${decision.sourceCellId} sending ${decision.unitCount} units to ${targetCellId}`);
+        }
+      } else if (attack.attackers.length === 1) {
+        // Single attacker with insufficient force - don't attack
+        console.log(`Single attacker insufficient: need ${requiredUnits}, have ${attack.totalUnits}`);
       } else {
-        console.log(`No decision made for cell ${aiCell.id}`);
+        // Multiple attackers but still insufficient - only proceed with strongest
+        const strongestAttacker = attack.attackers.reduce((strongest: AIDecision, current: AIDecision) => 
+          current.unitCount > strongest.unitCount ? current : strongest
+        );
+        decisions.push(strongestAttacker);
+        console.log(`Partial coordinated attack: only ${strongestAttacker.sourceCellId} attacking ${targetCellId}`);
       }
     }
 
@@ -43,7 +83,7 @@ export class AIStrategy {
 
     console.log(`Target found: ${targetCell.id} (${targetCell.owner}) with ${targetCell.units} units`);
 
-    // Check if we have 3x more units than the target
+    // Check if we have enough units for attack (3x for individual evaluation)
     const requiredUnits = targetCell.units * 3;
     console.log(`Required units for attack: ${requiredUnits}, AI has: ${sourceCell.units}`);
     

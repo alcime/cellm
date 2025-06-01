@@ -224,12 +224,18 @@ export class GameEngine {
     const targetCell = this.state.cells.find(c => c.id === unit.targetCellId);
     if (!targetCell) return;
 
-    if (targetCell.owner === unit.owner) {
-      // Friendly reinforcement
+    // Check if there's an ongoing battle at this cell
+    const ongoingBattle = this.state.battles.find(b => b.cellId === targetCell.id);
+    
+    if (targetCell.owner === unit.owner && !ongoingBattle) {
+      // Friendly reinforcement to peaceful cell
       targetCell.units += unit.unitCount;
       this.emit('units_arrived', { unit, targetCell });
+    } else if (targetCell.owner === unit.owner && ongoingBattle) {
+      // Friendly reinforcement to cell under attack - join as defender
+      this.reinforceDefenders(unit, targetCell, ongoingBattle);
     } else {
-      // Start or join battle
+      // Enemy cell or neutral - start or join battle as attacker
       this.startOrJoinBattle(unit, targetCell);
     }
   }
@@ -239,26 +245,27 @@ export class GameEngine {
     let battle = this.state.battles.find(b => b.cellId === targetCell.id);
     
     if (battle) {
-      // Join existing battle - store initial unit count for this unit
+      // Join existing battle - don't recalculate duration to avoid timing issues
       unit.battleState = 'fighting';
       unit.battlePosition = this.calculateBattlePosition(targetCell.position, battle.attackers.length);
-      (unit as any).initialUnitCount = unit.unitCount; // Store before adding to battle
+      
+      // Store join time and initial unit count for proportional damage calculation
+      (unit as any).joinTime = Date.now();
+      (unit as any).initialUnitCount = unit.unitCount;
+      (unit as any).joinProgress = battle.progress; // Track when this unit joined
+      
       battle.attackers.push(unit);
       
-      // Update total initial attackers
-      const newTotalInitialAttackers = battle.attackers.reduce((sum, a) => sum + ((a as any).initialUnitCount || 0), 0);
-      (battle as any).initialAttackerUnits = newTotalInitialAttackers;
-      
-      // Recalculate battle duration with new forces  
-      const newDuration = this.calculateBattleDuration(newTotalInitialAttackers, battle.defenderUnits);
-      battle.duration = newDuration * 1000; // Convert to milliseconds
+      this.emit('battle_joined', { battle, unit, targetCell });
     } else {
       // Start new battle
       unit.battleState = 'fighting';
       unit.battlePosition = this.calculateBattlePosition(targetCell.position, 0);
       
-      // Store initial unit count BEFORE creating battle
+      // Store initial unit count and join time
       (unit as any).initialUnitCount = unit.unitCount;
+      (unit as any).joinTime = Date.now();
+      (unit as any).joinProgress = 0;
       
       const battleDuration = this.calculateBattleDuration(unit.unitCount, targetCell.units);
       
@@ -269,7 +276,7 @@ export class GameEngine {
         defenderUnits: targetCell.units,
         defenderOwner: targetCell.owner,
         startTime: Date.now(),
-        duration: battleDuration * 1000, // Convert to milliseconds
+        duration: battleDuration * 1000,
         progress: 0
       };
       
@@ -341,28 +348,37 @@ export class GameEngine {
     const targetCell = this.state.cells.find(c => c.id === battle.cellId);
     if (!targetCell) return;
     
-    // Get initial forces (these should always be set now)
-    const initialAttackers = (battle as any).initialAttackerUnits;
-    const initialDefenders = (battle as any).initialDefenderUnits;
+    // Calculate total current attacker force from all units that have joined
+    let totalCurrentAttackers = 0;
+    let totalInitialAttackers = 0;
     
-    if (!initialAttackers || !initialDefenders) {
-      return; // Skip battle calculation if initial values missing
+    for (const attacker of battle.attackers) {
+      const joinProgress = (attacker as any).joinProgress || 0;
+      const initialUnits = (attacker as any).initialUnitCount || attacker.unitCount;
+      
+      // Only count units that have been in battle for damage calculation
+      const timeInBattle = Math.max(0, battle.progress - joinProgress);
+      const effectiveParticipation = Math.min(1, timeInBattle / 0.1); // Quick ramp-up
+      
+      totalCurrentAttackers += initialUnits * effectiveParticipation;
+      totalInitialAttackers += initialUnits;
     }
-
+    
+    const initialDefenders = (battle as any).initialDefenderUnits || targetCell.units;
     const defenseBonus = targetCell.type.defenseBonus || 1;
     const effectiveDefenders = initialDefenders * defenseBonus;
     
-    // Determine battle outcome and final casualties
+    // Determine battle outcome based on current effective forces
     let finalAttackerSurvivors: number, finalDefenderSurvivors: number;
     
-    if (initialAttackers > effectiveDefenders) {
+    if (totalCurrentAttackers > effectiveDefenders) {
       // Attackers win
       finalDefenderSurvivors = 0;
-      finalAttackerSurvivors = initialAttackers - effectiveDefenders;
+      finalAttackerSurvivors = totalCurrentAttackers - effectiveDefenders;
     } else {
       // Defenders win  
       finalAttackerSurvivors = 0;
-      finalDefenderSurvivors = initialDefenders - (initialAttackers / defenseBonus);
+      finalDefenderSurvivors = initialDefenders - (totalCurrentAttackers / defenseBonus);
     }
     
     // Ensure survivors are not negative
@@ -372,22 +388,28 @@ export class GameEngine {
     // Apply damage proportionally over time based on battle progress
     const progress = battle.progress;
     
-    // Calculate current units based on linear interpolation from initial to final
+    // Calculate current defender units
     const currentDefenders = initialDefenders - (initialDefenders - finalDefenderSurvivors) * progress;
-    const currentAttackers = initialAttackers - (initialAttackers - finalAttackerSurvivors) * progress;
-    
-    // Update defender units
     battle.defenderUnits = Math.max(0, currentDefenders);
     
-    // Update attacker units proportionally across all attacking units
-    if (initialAttackers > 0) {
-      const attackerSurvivalRate = currentAttackers / initialAttackers;
-      for (const attacker of battle.attackers) {
-        const originalUnits = (attacker as any).initialUnitCount;
-        if (!originalUnits) {
-          continue; // Skip if initial unit count missing
+    // Update attacker units individually based on their participation time
+    for (const attacker of battle.attackers) {
+      const joinProgress = (attacker as any).joinProgress || 0;
+      const initialUnits = (attacker as any).initialUnitCount || attacker.unitCount;
+      const timeInBattle = Math.max(0, battle.progress - joinProgress);
+      
+      if (timeInBattle <= 0) {
+        // Unit just arrived, no damage yet
+        attacker.unitCount = initialUnits;
+      } else {
+        // Calculate proportional damage based on time in battle
+        const battleDamageProgress = Math.min(1, timeInBattle / Math.max(0.1, 1 - joinProgress));
+        
+        if (totalCurrentAttackers > 0) {
+          const unitSurvivalRate = finalAttackerSurvivors / totalCurrentAttackers;
+          const finalUnits = initialUnits * unitSurvivalRate;
+          attacker.unitCount = Math.max(0, initialUnits - (initialUnits - finalUnits) * battleDamageProgress);
         }
-        attacker.unitCount = Math.max(0, originalUnits * attackerSurvivalRate);
       }
     }
   }
@@ -396,15 +418,23 @@ export class GameEngine {
     const targetCell = this.state.cells.find(c => c.id === battle.cellId);
     if (!targetCell) return;
 
-    // Use stored initial forces for final outcome determination
-    const initialAttackers = (battle as any).initialAttackerUnits;
-    const initialDefenders = (battle as any).initialDefenderUnits;
+    // Calculate total effective attacker force (considering time in battle)
+    let totalEffectiveAttackers = 0;
+    for (const attacker of battle.attackers) {
+      const joinProgress = (attacker as any).joinProgress || 0;
+      const initialUnits = (attacker as any).initialUnitCount || attacker.unitCount;
+      const timeInBattle = Math.max(0, 1 - joinProgress); // Full battle participation
+      const effectiveParticipation = Math.min(1, timeInBattle / 0.1);
+      totalEffectiveAttackers += initialUnits * effectiveParticipation;
+    }
+
+    const initialDefenders = (battle as any).initialDefenderUnits || targetCell.units;
     const defenseBonus = targetCell.type.defenseBonus || 1;
     const effectiveDefenders = initialDefenders * defenseBonus;
 
     const totalSurvivingAttackers = battle.attackers.reduce((sum, a) => sum + a.unitCount, 0);
 
-    if (initialAttackers > effectiveDefenders) {
+    if (totalEffectiveAttackers > effectiveDefenders) {
       // Attackers win
       const winningOwner = battle.attackers[0].owner;
       targetCell.owner = winningOwner;
@@ -419,6 +449,23 @@ export class GameEngine {
     this.state.units = this.state.units.filter(u => !battle.attackers.includes(u));
 
     this.emit('battle_ended', { battle, winner: targetCell.owner });
+  }
+
+  private reinforceDefenders(unit: Unit, targetCell: Cell, battle: Battle): void {
+    // Add reinforcements to the defending cell during battle
+    // This affects the defender count in the ongoing battle
+    const reinforcementBonus = unit.unitCount;
+    
+    // Increase defender units in the battle
+    battle.defenderUnits += reinforcementBonus;
+    
+    // Also update the cell units for post-battle
+    targetCell.units += reinforcementBonus;
+    
+    this.emit('defenders_reinforced', { unit, targetCell, battle, reinforcementBonus });
+    
+    // Remove the reinforcement unit as it's now part of the defense
+    this.state.units = this.state.units.filter(u => u.id !== unit.id);
   }
 
   // ===================
