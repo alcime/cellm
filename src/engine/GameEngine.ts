@@ -263,6 +263,12 @@ export class GameEngine {
       
       battle.attackers.push(unit);
       
+      // Log multi-faction battles for debugging
+      const attackerOwners = new Set(battle.attackers.map(a => a.owner));
+      if (attackerOwners.size > 1) {
+        console.log(`Multi-faction battle at ${targetCell.id}: owners [${Array.from(attackerOwners).join(', ')}]`);
+      }
+      
       this.emit('battle_joined', { battle, unit, targetCell });
     } else {
       // Start new battle
@@ -425,28 +431,70 @@ export class GameEngine {
     const targetCell = this.state.cells.find(c => c.id === battle.cellId);
     if (!targetCell) return;
 
-    // Calculate total effective attacker force (considering time in battle)
-    let totalEffectiveAttackers = 0;
+    // Group attackers by owner to handle multi-player battles correctly
+    const attackersByOwner = new Map<string, Unit[]>();
     for (const attacker of battle.attackers) {
-      const joinProgress = (attacker as any).joinProgress || 0;
-      const initialUnits = (attacker as any).initialUnitCount || attacker.unitCount;
-      const timeInBattle = Math.max(0, 1 - joinProgress); // Full battle participation
-      const effectiveParticipation = Math.min(1, timeInBattle / 0.1);
-      totalEffectiveAttackers += initialUnits * effectiveParticipation;
+      if (!attackersByOwner.has(attacker.owner)) {
+        attackersByOwner.set(attacker.owner, []);
+      }
+      attackersByOwner.get(attacker.owner)!.push(attacker);
+    }
+
+    // Calculate effective force for each attacking faction
+    const factionForces = new Map<string, { effective: number, surviving: number }>();
+    
+    for (const [owner, attackers] of Array.from(attackersByOwner.entries())) {
+      let effectiveForce = 0;
+      let survivingForce = 0;
+      
+      for (const attacker of attackers) {
+        const joinProgress = (attacker as any).joinProgress || 0;
+        const initialUnits = (attacker as any).initialUnitCount || attacker.unitCount;
+        const timeInBattle = Math.max(0, 1 - joinProgress);
+        const effectiveParticipation = Math.min(1, timeInBattle / 0.1);
+        
+        effectiveForce += initialUnits * effectiveParticipation;
+        survivingForce += attacker.unitCount;
+      }
+      
+      factionForces.set(owner, { effective: effectiveForce, surviving: survivingForce });
     }
 
     const initialDefenders = (battle as any).initialDefenderUnits || targetCell.units;
     const defenseBonus = targetCell.type.defenseBonus || 1;
     const effectiveDefenders = initialDefenders * defenseBonus;
 
-    const totalSurvivingAttackers = battle.attackers.reduce((sum, a) => sum + a.unitCount, 0);
+    // Calculate total attacking force
+    const totalEffectiveAttackers = Array.from(factionForces.values())
+      .reduce((sum, faction) => sum + faction.effective, 0);
 
     if (totalEffectiveAttackers > effectiveDefenders) {
-      // Attackers win
-      const winningOwner = battle.attackers[0].owner;
+      // Attackers win - determine which faction gets the cell
+      let winningOwner = '';
+      let winningForce = 0;
+      
+      // The faction with the most effective force wins
+      for (const [owner, forces] of Array.from(factionForces.entries())) {
+        if (forces.effective > winningForce) {
+          winningForce = forces.effective;
+          winningOwner = owner;
+        }
+      }
+      
+      // Winner gets the cell with only their surviving units
+      const winnerSurvivors = factionForces.get(winningOwner)?.surviving || 0;
       targetCell.owner = winningOwner;
-      targetCell.units = Math.max(1, Math.floor(totalSurvivingAttackers));
-      this.emit('cell_captured', { cellId: targetCell.id, newOwner: winningOwner });
+      targetCell.units = Math.max(1, Math.floor(winnerSurvivors));
+      
+      this.emit('cell_captured', { 
+        cellId: targetCell.id, 
+        newOwner: winningOwner,
+        battleInfo: {
+          factions: Object.fromEntries(factionForces),
+          winner: winningOwner,
+          winnerUnits: targetCell.units
+        }
+      });
     } else {
       // Defenders win
       targetCell.units = Math.max(1, Math.floor(battle.defenderUnits));
@@ -455,7 +503,11 @@ export class GameEngine {
     // Remove attacking units from the main units array
     this.state.units = this.state.units.filter(u => !battle.attackers.includes(u));
 
-    this.emit('battle_ended', { battle, winner: targetCell.owner });
+    this.emit('battle_ended', { 
+      battle, 
+      winner: targetCell.owner,
+      factionResults: Object.fromEntries(factionForces)
+    });
   }
 
   // ===================
