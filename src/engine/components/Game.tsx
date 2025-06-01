@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { GameEngine } from '../GameEngine';
 import { GameState, GameConfig, Cell as CellType, CellType as CellTypeData } from '../types';
+import { StrategyType } from '../AIStrategyManager';
 import { Cell } from './Cell';
 import { Unit } from './Unit';
 import { Path } from './Path';
 import { BattleVisualization } from './BattleVisualization';
+import { AIStrategySelector } from './AIStrategySelector';
 
 interface GameProps {
   config?: Partial<GameConfig>;
@@ -25,6 +27,8 @@ export const Game: React.FC<GameProps> = ({ config = {} }) => {
 
   const [gameState, setGameState] = useState<GameState>(gameEngine.getState());
   const [selectedCellId, setSelectedCellId] = useState<string | null>(null);
+  const [showStrategySelector, setShowStrategySelector] = useState(false);
+  const [currentStrategy, setCurrentStrategy] = useState<StrategyType>('simple');
 
   // Subscribe to game state changes
   useEffect(() => {
@@ -96,6 +100,12 @@ export const Game: React.FC<GameProps> = ({ config = {} }) => {
     gameEngine.start();
   };
 
+  const handleStrategyChange = (newStrategy: StrategyType) => {
+    setCurrentStrategy(newStrategy);
+    gameEngine.switchAIStrategy('enemy', newStrategy);
+    console.log(`Switched AI to ${newStrategy} strategy`);
+  };
+
   return (
     <div 
       style={{
@@ -123,6 +133,12 @@ export const Game: React.FC<GameProps> = ({ config = {} }) => {
         <button onClick={handleRestart} style={{ marginTop: '10px' }}>
           Restart Game
         </button>
+        <button 
+          onClick={() => setShowStrategySelector(!showStrategySelector)} 
+          style={{ marginTop: '5px', marginLeft: '10px' }}
+        >
+          AI Strategy
+        </button>
       </div>
 
       {/* Instructions */}
@@ -149,6 +165,23 @@ export const Game: React.FC<GameProps> = ({ config = {} }) => {
           Battle Duration: 4s (2x advantage) to 10s (balanced)
         </p>
       </div>
+
+      {/* AI Strategy Selector */}
+      {showStrategySelector && (
+        <div style={{
+          position: 'absolute',
+          top: 200,
+          left: 20,
+          zIndex: 200
+        }}>
+          <AIStrategySelector
+            currentStrategy={currentStrategy}
+            onStrategyChange={handleStrategyChange}
+            availableStrategies={gameEngine.listAvailableStrategies()}
+            disabled={gameState.gamePhase !== 'playing'}
+          />
+        </div>
+      )}
 
       {/* Paths */}
       {gameState.paths.map(path => (

@@ -1,18 +1,25 @@
 import { GameState, GameConfig, Cell, Unit, Path, Position, PlayerId, GameEvent, CellType, Battle } from './types';
-import { AIStrategy } from './AIStrategy';
+import { AIStrategy, IAIStrategy } from './AIStrategy';
+import { AIStrategyManager, StrategyType, AIPlayerConfig } from './AIStrategyManager';
 
 export class GameEngine {
   private state: GameState;
   private config: GameConfig;
   private eventListeners: { [eventType: string]: Function[] } = {};
   private gameLoop: number | null = null;
-  private aiStrategy: AIStrategy;
+  private aiStrategyManager: AIStrategyManager;
   private aiTimer: number = 0;
 
   constructor(config: GameConfig) {
     this.config = config;
     this.state = this.createInitialState();
-    this.aiStrategy = new AIStrategy('enemy');
+    this.aiStrategyManager = new AIStrategyManager();
+    
+    // Add default enemy AI
+    this.aiStrategyManager.addAIPlayer({
+      playerId: 'enemy',
+      strategyType: 'simple'
+    });
   }
 
   // ===================
@@ -451,6 +458,34 @@ export class GameEngine {
     this.emit('battle_ended', { battle, winner: targetCell.owner });
   }
 
+  // ===================
+  // AI STRATEGY MANAGEMENT
+  // ===================
+
+  public addAIPlayer(config: AIPlayerConfig): void {
+    this.aiStrategyManager.addAIPlayer(config);
+  }
+
+  public removeAIPlayer(playerId: PlayerId): void {
+    this.aiStrategyManager.removeAIPlayer(playerId);
+  }
+
+  public switchAIStrategy(playerId: PlayerId, strategyType: StrategyType): boolean {
+    return this.aiStrategyManager.switchStrategy(playerId, strategyType);
+  }
+
+  public getAIStrategyInfo(playerId: PlayerId): { name: string; config: import('./AIStrategy').AIStrategyConfig } | null {
+    return this.aiStrategyManager.getStrategyInfo(playerId);
+  }
+
+  public getAIPlayers(): PlayerId[] {
+    return this.aiStrategyManager.getAIPlayers();
+  }
+
+  public listAvailableStrategies(): { type: StrategyType; name: string; description: string }[] {
+    return this.aiStrategyManager.listAvailableStrategies();
+  }
+
   private reinforceDefenders(unit: Unit, targetCell: Cell, battle: Battle): void {
     // Add reinforcements to the defending cell during battle
     // This affects the defender count in the ongoing battle
@@ -563,15 +598,22 @@ export class GameEngine {
   // ===================
 
   private updateAI(): void {
-    const decisions = this.aiStrategy.makeDecisions(this.state);
+    const aiPlayers = this.aiStrategyManager.getAIPlayers();
     
-    if (decisions.length > 0) {
-      console.log(`AI making ${decisions.length} decisions:`, decisions);
-    }
-    
-    for (const decision of decisions) {
-      console.log(`AI sending ${decision.unitCount} units from ${decision.sourceCellId} to ${decision.targetCellId}`);
-      this.sendUnits(decision.sourceCellId, decision.targetCellId, decision.unitCount);
+    for (const playerId of aiPlayers) {
+      const strategy = this.aiStrategyManager.getStrategy(playerId);
+      if (!strategy) continue;
+      
+      const decisions = strategy.makeDecisions(this.state);
+      
+      if (decisions.length > 0) {
+        console.log(`${strategy.name} AI (${playerId}) making ${decisions.length} decisions`);
+      }
+      
+      for (const decision of decisions) {
+        console.log(`${playerId} sending ${decision.unitCount} units from ${decision.sourceCellId} to ${decision.targetCellId} (${decision.type})`);
+        this.sendUnits(decision.sourceCellId, decision.targetCellId, decision.unitCount);
+      }
     }
   }
 

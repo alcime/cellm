@@ -4,119 +4,96 @@ export interface AIDecision {
   sourceCellId: string;
   targetCellId: string;
   unitCount: number;
+  priority?: number; // 1-10, higher = more important
+  type?: 'attack' | 'reinforce' | 'expand';
 }
 
-export class AIStrategy {
-  private playerId: PlayerId;
+export interface AIStrategyConfig {
+  aggressiveness: number; // 0-1, how willing to attack
+  riskTolerance: number; // 0-1, how much risk to take
+  economicFocus: number; // 0-1, how much to prioritize growth
+  coordinationLevel: number; // 0-1, how much to coordinate attacks
+  defensiveBonus: number; // multiplier for defensive considerations
+}
 
-  constructor(playerId: PlayerId) {
+export interface AIMetrics {
+  totalCells: number;
+  totalUnits: number;
+  cellsUnderAttack: number;
+  averageUnitsPerCell: number;
+  strongestCell: number;
+  weakestCell: number;
+  enemyThreatLevel: number;
+}
+
+// Base interface for AI strategies
+export interface IAIStrategy {
+  readonly name: string;
+  readonly config: AIStrategyConfig;
+  makeDecisions(gameState: GameState): AIDecision[];
+  evaluateGameState(gameState: GameState): AIMetrics;
+}
+
+// Abstract base class with common functionality
+export abstract class BaseAIStrategy implements IAIStrategy {
+  protected playerId: PlayerId;
+  public readonly name: string;
+  public readonly config: AIStrategyConfig;
+
+  constructor(playerId: PlayerId, name: string, config: AIStrategyConfig) {
     this.playerId = playerId;
+    this.name = name;
+    this.config = config;
   }
 
-  public makeDecisions(gameState: GameState): AIDecision[] {
-    const decisions: AIDecision[] = [];
+  abstract makeDecisions(gameState: GameState): AIDecision[];
+
+  public evaluateGameState(gameState: GameState): AIMetrics {
     const aiCells = gameState.cells.filter(cell => cell.owner === this.playerId);
-
-    console.log(`AI found ${aiCells.length} cells owned by ${this.playerId}`);
-
-    // Track planned attacks to coordinate multiple attackers
-    const plannedAttacks = new Map<string, { totalUnits: number, attackers: AIDecision[] }>();
-
-    // First pass: evaluate potential attacks
-    const potentialDecisions: AIDecision[] = [];
-    for (const aiCell of aiCells) {
-      console.log(`Evaluating AI cell ${aiCell.id} with ${aiCell.units} units`);
-      const decision = this.evaluateCell(aiCell, gameState);
-      if (decision) {
-        potentialDecisions.push(decision);
-      }
-    }
-
-    // Second pass: coordinate attacks on same targets
-    for (const decision of potentialDecisions) {
-      if (!plannedAttacks.has(decision.targetCellId)) {
-        plannedAttacks.set(decision.targetCellId, { totalUnits: 0, attackers: [] });
-      }
-      
-      const attack = plannedAttacks.get(decision.targetCellId)!;
-      attack.totalUnits += decision.unitCount;
-      attack.attackers.push(decision);
-    }
-
-    // Third pass: finalize coordinated attacks
-    for (const [targetCellId, attack] of Array.from(plannedAttacks.entries())) {
-      const targetCell = gameState.cells.find(c => c.id === targetCellId);
-      if (!targetCell) continue;
-
-      // Check if combined force is sufficient (2x advantage instead of 4x for coordinated attacks)
-      const requiredUnits = targetCell.units * 2;
-      
-      if (attack.totalUnits >= requiredUnits) {
-        // All attackers proceed
-        for (const decision of attack.attackers) {
-          decisions.push(decision);
-          console.log(`Coordinated attack: ${decision.sourceCellId} sending ${decision.unitCount} units to ${targetCellId}`);
-        }
-      } else if (attack.attackers.length === 1) {
-        // Single attacker with insufficient force - don't attack
-        console.log(`Single attacker insufficient: need ${requiredUnits}, have ${attack.totalUnits}`);
-      } else {
-        // Multiple attackers but still insufficient - only proceed with strongest
-        const strongestAttacker = attack.attackers.reduce((strongest: AIDecision, current: AIDecision) => 
-          current.unitCount > strongest.unitCount ? current : strongest
-        );
-        decisions.push(strongestAttacker);
-        console.log(`Partial coordinated attack: only ${strongestAttacker.sourceCellId} attacking ${targetCellId}`);
-      }
-    }
-
-    return decisions;
-  }
-
-  private evaluateCell(sourceCell: Cell, gameState: GameState): AIDecision | null {
-    // Find closest non-ally cell
-    const targetCell = this.findClosestNonAllyCell(sourceCell, gameState);
-    if (!targetCell) {
-      console.log(`No target found for AI cell ${sourceCell.id}`);
-      return null;
-    }
-
-    console.log(`Target found: ${targetCell.id} (${targetCell.owner}) with ${targetCell.units} units`);
-
-    // Check if we have enough units for attack (3x for individual evaluation)
-    const requiredUnits = targetCell.units * 3;
-    console.log(`Required units for attack: ${requiredUnits}, AI has: ${sourceCell.units}`);
+    const enemyCells = gameState.cells.filter(cell => cell.owner !== this.playerId && cell.owner !== 'neutral');
     
-    if (sourceCell.units > requiredUnits) {
-      // Send half our units, but ensure we keep at least 1
-      const unitsToSend = Math.max(1, Math.floor((sourceCell.units - 1) / 2));
-      
-      console.log(`AI will send ${unitsToSend} units to attack`);
-      
-      return {
-        sourceCellId: sourceCell.id,
-        targetCellId: targetCell.id,
-        unitCount: unitsToSend
-      };
-    } else {
-      console.log(`Not enough units to attack - need ${requiredUnits}, have ${sourceCell.units}`);
+    const totalUnits = aiCells.reduce((sum, cell) => sum + cell.units, 0);
+    const cellsUnderAttack = gameState.battles.filter(b => 
+      aiCells.some(cell => cell.id === b.cellId)
+    ).length;
+    
+    const unitCounts = aiCells.map(cell => cell.units);
+    const strongestCell = Math.max(...unitCounts, 0);
+    const weakestCell = Math.min(...unitCounts, 0);
+    
+    // Calculate enemy threat based on proximity and strength
+    let enemyThreatLevel = 0;
+    for (const aiCell of aiCells) {
+      const nearbyEnemies = enemyCells.filter(enemy => 
+        this.calculateDistance(aiCell.position, enemy.position) < 200
+      );
+      enemyThreatLevel += nearbyEnemies.reduce((sum, enemy) => sum + enemy.units, 0);
     }
-
-    return null;
+    
+    return {
+      totalCells: aiCells.length,
+      totalUnits,
+      cellsUnderAttack,
+      averageUnitsPerCell: aiCells.length > 0 ? totalUnits / aiCells.length : 0,
+      strongestCell,
+      weakestCell,
+      enemyThreatLevel
+    };
   }
 
-  private findClosestNonAllyCell(sourceCell: Cell, gameState: GameState): Cell | null {
-    // Consider both enemy and neutral cells as potential targets
-    const targetCells = gameState.cells.filter(cell => 
-      cell.owner !== this.playerId
-    );
+  protected calculateDistance(pos1: { x: number; y: number }, pos2: { x: number; y: number }): number {
+    const dx = pos2.x - pos1.x;
+    const dy = pos2.y - pos1.y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
 
+  protected findClosestNonAllyCell(sourceCell: Cell, gameState: GameState): Cell | null {
+    const targetCells = gameState.cells.filter(cell => cell.owner !== this.playerId);
     if (targetCells.length === 0) return null;
-
     return this.getClosestCell(sourceCell, targetCells);
   }
 
-  private getClosestCell(sourceCell: Cell, targetCells: Cell[]): Cell | null {
+  protected getClosestCell(sourceCell: Cell, targetCells: Cell[]): Cell | null {
     if (targetCells.length === 0) return null;
 
     let closestCell = targetCells[0];
@@ -133,9 +110,128 @@ export class AIStrategy {
     return closestCell;
   }
 
-  private calculateDistance(pos1: { x: number; y: number }, pos2: { x: number; y: number }): number {
-    const dx = pos2.x - pos1.x;
-    const dy = pos2.y - pos1.y;
-    return Math.sqrt(dx * dx + dy * dy);
+  protected coordinateAttacks(decisions: AIDecision[], gameState: GameState): AIDecision[] {
+    if (this.config.coordinationLevel < 0.5) {
+      return decisions; // Low coordination, return as-is
+    }
+
+    const plannedAttacks = new Map<string, { totalUnits: number, attackers: AIDecision[] }>();
+
+    // Group attacks by target
+    for (const decision of decisions) {
+      if (!plannedAttacks.has(decision.targetCellId)) {
+        plannedAttacks.set(decision.targetCellId, { totalUnits: 0, attackers: [] });
+      }
+      
+      const attack = plannedAttacks.get(decision.targetCellId)!;
+      attack.totalUnits += decision.unitCount;
+      attack.attackers.push(decision);
+    }
+
+    const coordinatedDecisions: AIDecision[] = [];
+
+    // Apply coordination logic
+    for (const [targetCellId, attack] of Array.from(plannedAttacks.entries())) {
+      if (attack.attackers.length === 1) {
+        coordinatedDecisions.push(attack.attackers[0]);
+      } else {
+        // Multiple attackers - apply coordination rules based on strategy
+        coordinatedDecisions.push(...this.applyCoordinationRules(attack.attackers, targetCellId, gameState));
+      }
+    }
+
+    return coordinatedDecisions;
+  }
+
+  protected abstract applyCoordinationRules(attackers: AIDecision[], targetCellId: string, gameState: GameState): AIDecision[];
+}
+
+// Simple strategy - the current implementation
+export class SimpleAIStrategy extends BaseAIStrategy {
+  constructor(playerId: PlayerId) {
+    super(playerId, 'Simple', {
+      aggressiveness: 0.6,
+      riskTolerance: 0.5,
+      economicFocus: 0.4,
+      coordinationLevel: 0.7,
+      defensiveBonus: 1.0
+    });
+  }
+
+  public makeDecisions(gameState: GameState): AIDecision[] {
+    const aiCells = gameState.cells.filter(cell => cell.owner === this.playerId);
+    this.evaluateGameState(gameState); // Evaluate for side effects
+
+    console.log(`AI found ${aiCells.length} cells owned by ${this.playerId}`);
+
+    // Generate potential decisions
+    const potentialDecisions: AIDecision[] = [];
+    for (const aiCell of aiCells) {
+      console.log(`Evaluating AI cell ${aiCell.id} with ${aiCell.units} units`);
+      const decision = this.evaluateCell(aiCell, gameState);
+      if (decision) {
+        potentialDecisions.push(decision);
+      }
+    }
+
+    // Apply coordination if enabled
+    return this.coordinateAttacks(potentialDecisions, gameState);
+  }
+
+  protected evaluateCell(sourceCell: Cell, gameState: GameState): AIDecision | null {
+    const targetCell = this.findClosestNonAllyCell(sourceCell, gameState);
+    if (!targetCell) {
+      console.log(`No target found for AI cell ${sourceCell.id}`);
+      return null;
+    }
+
+    console.log(`Target found: ${targetCell.id} (${targetCell.owner}) with ${targetCell.units} units`);
+
+    const requiredUnits = targetCell.units * 3;
+    console.log(`Required units for attack: ${requiredUnits}, AI has: ${sourceCell.units}`);
+    
+    if (sourceCell.units > requiredUnits) {
+      const unitsToSend = Math.max(1, Math.floor((sourceCell.units - 1) / 2));
+      
+      console.log(`AI will send ${unitsToSend} units to attack`);
+      
+      return {
+        sourceCellId: sourceCell.id,
+        targetCellId: targetCell.id,
+        unitCount: unitsToSend,
+        priority: 5,
+        type: 'attack'
+      };
+    } else {
+      console.log(`Not enough units to attack - need ${requiredUnits}, have ${sourceCell.units}`);
+    }
+
+    return null;
+  }
+
+  protected applyCoordinationRules(attackers: AIDecision[], targetCellId: string, gameState: GameState): AIDecision[] {
+    const targetCell = gameState.cells.find(c => c.id === targetCellId);
+    if (!targetCell) return attackers;
+
+    const totalUnits = attackers.reduce((sum, a) => sum + a.unitCount, 0);
+    const requiredUnits = targetCell.units * 2; // 2x advantage for coordinated attacks
+    
+    if (totalUnits >= requiredUnits) {
+      return attackers; // All proceed
+    } else if (attackers.length === 1) {
+      return []; // Single attacker insufficient
+    } else {
+      // Only strongest attacker proceeds
+      return [attackers.reduce((strongest: AIDecision, current: AIDecision) => 
+        current.unitCount > strongest.unitCount ? current : strongest
+      )];
+    }
+  }
+}
+
+// Export default strategy for backward compatibility
+export class AIStrategy extends SimpleAIStrategy {
+  constructor(playerId: PlayerId) {
+    super(playerId);
   }
 }
