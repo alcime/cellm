@@ -48,10 +48,11 @@ export class SwarmAIStrategy extends BaseAIStrategy {
     const targetAnalysis: Array<{target: Cell, priority: number, attackers: Cell[]}> = [];
 
     for (const target of allTargets) {
-      // Find all cells that could participate in swarm attack (within range)
+      // Find all neighbor cells that could participate in swarm attack
+      const neighborRange = 180; // Must match GameEngine's neighbor range
       const potentialAttackers = aiCells.filter(aiCell => {
         const distance = this.calculateDistance(aiCell.position, target.position);
-        return distance <= 350 && aiCell.units > 2; // Must have enough units
+        return distance <= neighborRange && aiCell.units > 2; // Must be neighbor and have enough units
       });
 
       if (potentialAttackers.length < 2) continue; // Need at least 2 for swarm
@@ -83,10 +84,11 @@ export class SwarmAIStrategy extends BaseAIStrategy {
   }
 
   private planSwarmAttack(target: Cell, availableAttackers: Cell[], gameState: GameState): AIDecision[] {
-    // Find optimal attackers for this swarm
+    // Find optimal neighbor attackers for this swarm
+    const neighborRange = 180; // Must match GameEngine's neighbor range
     const attackers = availableAttackers.filter(cell => {
       const distance = this.calculateDistance(cell.position, target.position);
-      return distance <= 350 && cell.units > 2;
+      return distance <= neighborRange && cell.units > 2; // Must be neighbor
     });
 
     if (attackers.length < 2) return []; // Need minimum swarm size
@@ -117,7 +119,7 @@ export class SwarmAIStrategy extends BaseAIStrategy {
       
       // Calculate optimal unit count for this attacker
       const unitsToSend = this.calculateSwarmContribution(
-        attacker, target, totalSwarmForce, requiredTotalForce, availableUnits
+        attacker, totalSwarmForce, requiredTotalForce, availableUnits
       );
 
       if (unitsToSend > 0) {
@@ -148,7 +150,6 @@ export class SwarmAIStrategy extends BaseAIStrategy {
 
   private calculateSwarmContribution(
     attacker: Cell, 
-    target: Cell, 
     currentSwarmForce: number, 
     requiredForce: number, 
     maxAvailable: number
@@ -165,7 +166,7 @@ export class SwarmAIStrategy extends BaseAIStrategy {
     return Math.max(0, optimalContribution);
   }
 
-  protected applyCoordinationRules(attackers: AIDecision[], targetCellId: string, gameState: GameState): AIDecision[] {
+  protected applyCoordinationRules(attackers: AIDecision[]): AIDecision[] {
     // Swarm strategy handles coordination in planSwarmAttack, so just return as-is
     return attackers;
   }

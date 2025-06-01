@@ -88,9 +88,24 @@ export abstract class BaseAIStrategy implements IAIStrategy {
   }
 
   protected findClosestNonAllyCell(sourceCell: Cell, gameState: GameState): Cell | null {
-    const targetCells = gameState.cells.filter(cell => cell.owner !== this.playerId);
-    if (targetCells.length === 0) return null;
-    return this.getClosestCell(sourceCell, targetCells);
+    // First filter for neighbor cells only (within range)
+    const neighborRange = 180; // Must match GameEngine's neighbor range
+    const neighborCells = gameState.cells.filter(cell => 
+      cell.owner !== this.playerId && 
+      cell.id !== sourceCell.id &&
+      this.calculateDistance(sourceCell.position, cell.position) <= neighborRange
+    );
+    
+    if (neighborCells.length === 0) return null;
+    return this.getClosestCell(sourceCell, neighborCells);
+  }
+
+  protected getNeighbors(sourceCell: Cell, gameState: GameState): Cell[] {
+    const neighborRange = 180; // Must match GameEngine's neighbor range
+    return gameState.cells.filter(cell => 
+      cell.id !== sourceCell.id && 
+      this.calculateDistance(sourceCell.position, cell.position) <= neighborRange
+    );
   }
 
   protected getClosestCell(sourceCell: Cell, targetCells: Cell[]): Cell | null {

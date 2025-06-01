@@ -26,7 +26,7 @@ export class AggressiveAIStrategy extends BaseAIStrategy {
 
       const weakestTarget = this.findWeakestTarget(aiCell, gameState);
       if (weakestTarget) {
-        const decision = this.evaluateAggressiveAttack(aiCell, weakestTarget, gameState);
+        const decision = this.evaluateAggressiveAttack(aiCell, weakestTarget);
         if (decision) {
           decisions.push(decision);
         }
@@ -42,10 +42,11 @@ export class AggressiveAIStrategy extends BaseAIStrategy {
     );
     const neutralCells = gameState.cells.filter(cell => cell.owner === 'neutral');
     
-    // Prioritize weak enemies over neutrals
+    // Prioritize weak enemies over neutrals, but only neighbors (within range)
+    const neighborRange = 180; // Must match GameEngine's neighbor range
     const allTargets = [...enemyCells, ...neutralCells].filter(target => {
       const distance = this.calculateDistance(sourceCell.position, target.position);
-      return distance < 300; // Only consider nearby targets
+      return distance <= neighborRange; // Only consider neighbors
     });
 
     if (allTargets.length === 0) return null;
@@ -55,7 +56,7 @@ export class AggressiveAIStrategy extends BaseAIStrategy {
     return allTargets[0];
   }
 
-  private evaluateAggressiveAttack(sourceCell: Cell, targetCell: Cell, gameState: GameState): AIDecision | null {
+  private evaluateAggressiveAttack(sourceCell: Cell, targetCell: Cell): AIDecision | null {
     // Aggressive strategy: attack with just 1.5x advantage
     const requiredUnits = Math.ceil(targetCell.units * 1.5);
     

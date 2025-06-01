@@ -67,6 +67,33 @@ export class GameEngine {
   }
 
   // ===================
+  // NEIGHBOR DETECTION
+  // ===================
+
+  public getNeighbors(cellId: string): Cell[] {
+    const sourceCell = this.state.cells.find(c => c.id === cellId);
+    if (!sourceCell) return [];
+
+    // Define neighbor range - cells within this distance are considered neighbors
+    const neighborRange = 180; // Adjust based on your game's cell spacing
+    
+    return this.state.cells.filter(cell => 
+      cell.id !== cellId && 
+      this.distance(sourceCell.position, cell.position) <= neighborRange
+    );
+  }
+
+  public areNeighbors(cellId1: string, cellId2: string): boolean {
+    const cell1 = this.state.cells.find(c => c.id === cellId1);
+    const cell2 = this.state.cells.find(c => c.id === cellId2);
+    
+    if (!cell1 || !cell2) return false;
+    
+    const neighborRange = 180;
+    return this.distance(cell1.position, cell2.position) <= neighborRange;
+  }
+
+  // ===================
   // GAME ACTIONS
   // ===================
 
@@ -85,11 +112,16 @@ export class GameEngine {
       return false;
     }
 
+    // Check if target cell is a neighbor (within range)
+    if (!this.areNeighbors(sourceCellId, targetCellId)) {
+      console.log(`Attack from ${sourceCellId} to ${targetCellId} blocked: not neighbors`);
+      return false;
+    }
+
     // Remove units from source
     sourceCell.units -= unitCount;
 
-    // Calculate distance-based travel speed for consistent travel time
-    const distance = this.distance(sourceCell.position, targetCell.position);
+    // Calculate travel speed for consistent travel time
     // Aim for consistent 2-3 second travel time regardless of distance
     const targetTravelTime = 2.5; // seconds
     const travelSpeed = 1 / (targetTravelTime * this.config.unitSpeed);
@@ -234,10 +266,6 @@ export class GameEngine {
     }
   }
 
-  // Smooth easing function for natural movement
-  private easeInOutQuad(t: number): number {
-    return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-  }
 
   private processUnitArrival(unit: Unit): void {
     const targetCell = this.state.cells.find(c => c.id === unit.targetCellId);

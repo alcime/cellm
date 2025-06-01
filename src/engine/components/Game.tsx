@@ -39,6 +39,7 @@ export const Game: React.FC<GameProps> = ({ config = {} }) => {
   const [showSetup, setShowSetup] = useState(true);
   const [showGameInfo, setShowGameInfo] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
+  const [showRangeIndicator, setShowRangeIndicator] = useState<string | null>(null);
 
   // Subscribe to game state changes
   useEffect(() => {
@@ -104,11 +105,18 @@ export const Game: React.FC<GameProps> = ({ config = {} }) => {
       }
 
       setSelectedCellId(null);
+      setShowRangeIndicator(null);
     } else {
-      // Select cell if owned by player
+      // Select cell and show range indicator
       const cell = gameState.cells.find(c => c.id === cellId);
       if (cell && cell.owner === 'player') {
         setSelectedCellId(cellId);
+        setShowRangeIndicator(cellId);
+      } else {
+        // Clicked on non-player cell, show its range anyway
+        setShowRangeIndicator(cellId);
+        // Clear range indicator after 2 seconds
+        setTimeout(() => setShowRangeIndicator(null), 2000);
       }
     }
 
@@ -353,6 +361,29 @@ export const Game: React.FC<GameProps> = ({ config = {} }) => {
         <Path key={path.id} path={path} cells={gameState.cells} />
       ))}
 
+      {/* Range Indicator */}
+      {showRangeIndicator && (() => {
+        const cell = gameState.cells.find(c => c.id === showRangeIndicator);
+        if (!cell) return null;
+        
+        return (
+          <div
+            style={{
+              position: 'absolute',
+              left: cell.position.x - 180, // neighborRange radius
+              top: cell.position.y - 180,
+              width: 360, // neighborRange diameter
+              height: 360,
+              border: '2px dashed rgba(59, 130, 246, 0.6)',
+              borderRadius: '50%',
+              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+              pointerEvents: 'none',
+              zIndex: 5
+            }}
+          />
+        );
+      })()}
+
       {/* Cells */}
       {gameState.cells.map(cell => (
         <Cell
@@ -410,55 +441,86 @@ function createInitialCells(): CellType[] {
   const [standard, factory, fortress] = cellTypes;
   const cells: CellType[] = [];
 
-  // Player starting area (left side)
+  // Range is 180px, so cells need to be within that distance to be neighbors
+  
+  // ======= PLAYER STARTING CLUSTER (Left side) =======
+  // Player home base
   cells.push({
     id: generateId(),
-    position: { x: 150, y: 300 },
-    units: 12,
+    position: { x: 120, y: 300 },
+    units: 15,
+    owner: 'player',
+    type: standard
+  });
+  
+  // Player forward positions (within 180px range)
+  cells.push({
+    id: generateId(),
+    position: { x: 280, y: 250 }, // 160px from home base
+    units: 8,
+    owner: 'player',
+    type: standard
+  });
+  
+  cells.push({
+    id: generateId(),
+    position: { x: 280, y: 350 }, // 160px from home base
+    units: 8,
     owner: 'player',
     type: standard
   });
 
-  // Enemy starting area (right side)  
+  // ======= ENEMY STARTING CLUSTER (Right side) =======
+  // Enemy home base
   cells.push({
     id: generateId(),
-    position: { x: 1050, y: 300 },
-    units: 12,
+    position: { x: 1080, y: 300 },
+    units: 15,
+    owner: 'enemy',
+    type: standard
+  });
+  
+  // Enemy forward positions (within 180px range)
+  cells.push({
+    id: generateId(),
+    position: { x: 920, y: 250 }, // 160px from enemy base
+    units: 8,
+    owner: 'enemy',
+    type: standard
+  });
+  
+  cells.push({
+    id: generateId(),
+    position: { x: 920, y: 350 }, // 160px from enemy base
+    units: 8,
     owner: 'enemy',
     type: standard
   });
 
-  // Strategic neutral cells in center area
+  // ======= NEUTRAL EXPANSION CHAIN (Center corridor) =======
+  // This creates a connected path through the center
   
-  // Row 1 (top) - Mixed types for testing
+  // Left expansion targets (reachable from player forward positions)
   cells.push({
     id: generateId(),
-    position: { x: 400, y: 150 },
+    position: { x: 420, y: 200 }, // 140px from player forward
     units: 3,
     owner: 'neutral',
-    type: factory // Fast production
+    type: factory
   });
   
   cells.push({
     id: generateId(),
-    position: { x: 600, y: 150 },
-    units: 8,
+    position: { x: 420, y: 400 }, // 140px from player forward
+    units: 4,
     owner: 'neutral',
-    type: fortress // Strong defense
-  });
-  
-  cells.push({
-    id: generateId(),
-    position: { x: 800, y: 150 },
-    units: 2,
-    owner: 'neutral',
-    type: standard // Was teleporter
+    type: standard
   });
 
-  // Row 2 (center) - Key strategic positions
+  // Intermediate stepping stones (connect expansion to center)
   cells.push({
     id: generateId(),
-    position: { x: 350, y: 300 },
+    position: { x: 520, y: 250 }, // 100px from left expansion, 141px from center
     units: 5,
     owner: 'neutral',
     type: standard
@@ -466,58 +528,137 @@ function createInitialCells(): CellType[] {
   
   cells.push({
     id: generateId(),
-    position: { x: 600, y: 300 },
+    position: { x: 520, y: 350 }, // 100px from left expansion, 141px from center
+    units: 4,
+    owner: 'neutral',
+    type: standard
+  });
+
+  // Center strategic positions
+  cells.push({
+    id: generateId(),
+    position: { x: 600, y: 300 }, // Central fortress
+    units: 12,
+    owner: 'neutral',
+    type: fortress
+  });
+  
+  cells.push({
+    id: generateId(),
+    position: { x: 600, y: 150 }, // 150px from center
     units: 6,
     owner: 'neutral',
-    type: fortress // Central fortress
+    type: standard
   });
   
   cells.push({
     id: generateId(),
-    position: { x: 850, y: 300 },
-    units: 4,
+    position: { x: 600, y: 450 }, // 150px from center
+    units: 5,
     owner: 'neutral',
     type: standard
   });
 
-  // Row 3 (bottom) - Resource and testing cells
+  // Right intermediate stepping stones (mirror left side)
   cells.push({
     id: generateId(),
-    position: { x: 400, y: 450 },
-    units: 1,
-    owner: 'neutral',
-    type: factory // Easy to capture factory
-  });
-  
-  cells.push({
-    id: generateId(),
-    position: { x: 600, y: 450 },
-    units: 3,
+    position: { x: 680, y: 250 }, // 100px from right expansion, 141px from center
+    units: 4,
     owner: 'neutral',
     type: standard
   });
   
   cells.push({
     id: generateId(),
-    position: { x: 800, y: 450 },
+    position: { x: 680, y: 350 }, // 100px from right expansion, 141px from center
+    units: 5,
+    owner: 'neutral',
+    type: standard
+  });
+
+  // Right expansion targets (reachable from enemy forward positions)
+  cells.push({
+    id: generateId(),
+    position: { x: 780, y: 200 }, // 140px from enemy forward
+    units: 4,
+    owner: 'neutral',
+    type: standard
+  });
+  
+  cells.push({
+    id: generateId(),
+    position: { x: 780, y: 400 }, // 140px from enemy forward
+    units: 3,
+    owner: 'neutral',
+    type: factory
+  });
+
+  // ======= FLANKING OPPORTUNITIES =======
+  // Northern route
+  cells.push({
+    id: generateId(),
+    position: { x: 400, y: 80 },
     units: 2,
     owner: 'neutral',
-    type: standard // Was teleporter
+    type: standard
   });
-
-  // Flanking positions
+  
   cells.push({
     id: generateId(),
-    position: { x: 300, y: 500 },
-    units: 4,
+    position: { x: 600, y: 80 }, // 200px from northern, but connects via 600,150
+    units: 1,
+    owner: 'neutral',
+    type: factory
+  });
+  
+  cells.push({
+    id: generateId(),
+    position: { x: 800, y: 80 },
+    units: 2,
+    owner: 'neutral',
+    type: standard
+  });
+
+  // Southern route
+  cells.push({
+    id: generateId(),
+    position: { x: 400, y: 520 },
+    units: 2,
     owner: 'neutral',
     type: standard
   });
   
   cells.push({
     id: generateId(),
-    position: { x: 900, y: 100 },
-    units: 3,
+    position: { x: 600, y: 520 }, // 70px from 600,450
+    units: 1,
+    owner: 'neutral',
+    type: factory
+  });
+  
+  cells.push({
+    id: generateId(),
+    position: { x: 800, y: 520 },
+    units: 2,
+    owner: 'neutral',
+    type: standard
+  });
+
+  // ======= RESOURCE PRIZES (High value, well defended) =======
+  // Northern factory cluster
+  cells.push({
+    id: generateId(),
+    position: { x: 300, y: 120 }, // Links northern route to player side
+    units: 6,
+    owner: 'neutral',
+    type: factory
+  });
+  
+  // Southern factory cluster  
+  cells.push({
+    id: generateId(),
+    position: { x: 900, y: 480 }, // Links southern route to enemy side
+    units: 6,
     owner: 'neutral',
     type: factory
   });

@@ -36,10 +36,11 @@ export class DefensiveAIStrategy extends BaseAIStrategy {
     const threatenedCells = this.findThreatenedCells(gameState);
 
     for (const threatened of threatenedCells) {
-      // Find nearby cells that can reinforce
+      // Find neighbor cells that can reinforce (within range)
+      const neighborRange = 180; // Must match GameEngine's neighbor range
       const reinforcers = aiCells.filter(cell => {
         const distance = this.calculateDistance(cell.position, threatened.position);
-        return distance < 250 && cell.units > 3 && cell.id !== threatened.id;
+        return distance <= neighborRange && cell.units > 3 && cell.id !== threatened.id;
       });
 
       for (const reinforcer of reinforcers) {
@@ -109,10 +110,11 @@ export class DefensiveAIStrategy extends BaseAIStrategy {
       cell.owner !== this.playerId && cell.owner !== 'neutral'
     );
 
-    // Find neutral cells far from enemies
+    // Find neighbor neutral cells that are safe from enemies
+    const neighborRange = 180; // Must match GameEngine's neighbor range
     const safeCells = neutralCells.filter(neutral => {
       const distanceFromSource = this.calculateDistance(sourceCell.position, neutral.position);
-      if (distanceFromSource > 300) return false; // Too far
+      if (distanceFromSource > neighborRange) return false; // Must be neighbor
 
       // Check if any enemies are nearby
       const nearbyEnemies = enemyCells.filter(enemy => {

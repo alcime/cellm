@@ -72,10 +72,11 @@ export class EconomicAIStrategy extends BaseAIStrategy {
   private findBestEconomicAttacker(target: Cell, aiCells: Cell[]): Cell | null {
     let bestAttacker: Cell | null = null;
     let bestEfficiency = 0;
+    const neighborRange = 180; // Must match GameEngine's neighbor range
 
     for (const aiCell of aiCells) {
       const distance = this.calculateDistance(aiCell.position, target.position);
-      if (distance > 300) continue; // Too far
+      if (distance > neighborRange) continue; // Must be neighbor
       
       // Calculate efficiency: units available / distance
       const availableUnits = Math.max(0, aiCell.units - 3); // Keep some defense
@@ -98,13 +99,14 @@ export class EconomicAIStrategy extends BaseAIStrategy {
     const strongCells = aiCells.filter(cell => cell.units > 8);
 
     for (const weakCell of weakCells) {
-      // Find nearest strong cell to reinforce from
+      // Find nearest neighbor strong cell to reinforce from
+      const neighborRange = 180; // Must match GameEngine's neighbor range
       const nearbyStrong = strongCells
         .map(strong => ({
           cell: strong,
           distance: this.calculateDistance(weakCell.position, strong.position)
         }))
-        .filter(item => item.distance < 200)
+        .filter(item => item.distance <= neighborRange) // Must be neighbor
         .sort((a, b) => a.distance - b.distance);
 
       if (nearbyStrong.length > 0) {
@@ -134,9 +136,10 @@ export class EconomicAIStrategy extends BaseAIStrategy {
     for (const aiCell of aiCells) {
       if (aiCell.units <= 6) continue; // Need substantial force
 
+      const neighborRange = 180; // Must match GameEngine's neighbor range
       const strategicTargets = enemyCells.filter(enemy => {
         const distance = this.calculateDistance(aiCell.position, enemy.position);
-        if (distance > 250) return false;
+        if (distance > neighborRange) return false; // Must be neighbor
 
         // Target if: very weak OR threatens our territory
         const isVeryWeak = enemy.units <= 2;
